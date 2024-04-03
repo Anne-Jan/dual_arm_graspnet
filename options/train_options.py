@@ -78,4 +78,7 @@ class TrainOptions(BaseOptions):
         self.parser.add_argument('--verbose_plot',
                                  action='store_true',
                                  help='plots network weights, etc.')
+        self.parser.add_argument('--dual_grasp',
+                                 action='store_true',
+                                 help='use dual grasp')
         self.is_train = True

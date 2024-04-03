@@ -4,11 +4,12 @@ from models import create_model
 from utils.writer import Writer
 
 
-def run_test(epoch=-1, name=""):
+def run_test(epoch=-1, name="", dual_grasp=False):
     print('Running Test')
     opt = TestOptions().parse()
     opt.serial_batches = True  # no shuffle
     opt.name = name
+    opt.dual_grasp = dual_grasp
     dataset = DataLoader(opt)
     model = create_model(opt)
     writer = Writer(opt)

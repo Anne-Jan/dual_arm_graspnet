@@ -73,7 +73,7 @@ def define_classifier(opt, gpu_ids, arch, init_type, init_gain, device):
     net = None
     if arch == 'vae':
         net = GraspSamplerVAE(opt.model_scale, opt.pointnet_radius,
-                              opt.pointnet_nclusters, opt.latent_size, device)
+                              opt.pointnet_nclusters, opt.latent_size, device, opt.dual_grasp)
     elif arch == 'gan':
         net = GraspSamplerGAN(opt.model_scale, opt.pointnet_radius,
                               opt.pointnet_nclusters, opt.latent_size, device)
@@ -110,7 +110,6 @@ class GraspSampler(nn.Module):
                        num_input_features):
         # The number of input features for the decoder is 3+latent space where 3
         # represents the x, y, z position of the point-cloud
-
         self.decoder = base_network(pointnet_radius, pointnet_nclusters,
                                     model_scale, num_input_features)
         self.q = nn.Linear(model_scale * 1024, 4)
@@ -126,7 +125,7 @@ class GraspSampler(nn.Module):
         x = self.decoder[1](xyz_features.squeeze(-1))
         predicted_qt = torch.cat(
             (F.normalize(self.q(x), p=2, dim=-1), self.t(x)), -1)
-
+        # print(predicted_qt.shape)
         return predicted_qt, torch.sigmoid(self.confidence(x)).squeeze()
 
     def concatenate_z_with_pc(self, pc, z):
@@ -146,9 +145,10 @@ class GraspSamplerVAE(GraspSampler):
                  pointnet_radius=0.02,
                  pointnet_nclusters=128,
                  latent_size=2,
-                 device="cpu"):
+                 device="cpu",
+                 dual_grasp=False):
         super(GraspSamplerVAE, self).__init__(latent_size, device)
-        self.create_encoder(model_scale, pointnet_radius, pointnet_nclusters)
+        self.create_encoder(model_scale, pointnet_radius, pointnet_nclusters, dual_grasp)
 
         self.create_decoder(model_scale, pointnet_radius, pointnet_nclusters,
                             latent_size + 3)
@@ -159,10 +159,17 @@ class GraspSamplerVAE(GraspSampler):
             model_scale,
             pointnet_radius,
             pointnet_nclusters,
+            dual_grasp=False,
     ):
         # The number of input features for the encoder is 19: the x, y, z
         # position of the point-cloud and the flattened 4x4=16 grasp pose matrix
-        self.encoder = base_network(pointnet_radius, pointnet_nclusters,
+        #If using dual grasps the number of the input features is 35: the x, y, z
+        # position of the point-cloud and the flattened 2x4x4=32 grasp pose matrix
+        if dual_grasp:
+            self.encoder = base_network(pointnet_radius, pointnet_nclusters,
+                                        model_scale, 35)
+        else:
+            self.encoder = base_network(pointnet_radius, pointnet_nclusters,
                                     model_scale, 19)
 
     def create_bottleneck(self, input_size, latent_size):
@@ -171,6 +178,7 @@ class GraspSamplerVAE(GraspSampler):
         self.latent_space = nn.ModuleList([mu, logvar])
 
     def encode(self, xyz, xyz_features):
+        # print(xyz.shape, xyz_features.shape)
         for module in self.encoder[0]:
             xyz, xyz_features = module(xyz, xyz_features)
         return self.encoder[1](xyz_features.squeeze(-1))
@@ -185,11 +193,13 @@ class GraspSamplerVAE(GraspSampler):
 
     def forward(self, pc, grasp=None, train=True):
         if train:
+            # print(grasp.shape)
             return self.forward_train(pc, grasp)
         else:
             return self.forward_test(pc, grasp)
 
     def forward_train(self, pc, grasp):
+        # print(pc.shape, grasp.shape)
         input_features = torch.cat(
             (pc, grasp.unsqueeze(1).expand(-1, pc.shape[1], -1)),
             -1).transpose(-1, 1).contiguous()

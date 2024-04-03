@@ -60,10 +60,20 @@ class GraspSamplingData(BaseDataset):
                 output_grasps.append(camera_pose.dot(selected_grasp))
         gt_control_points = utils.transform_control_points_numpy(
             np.array(output_grasps), self.opt.num_grasps_per_object, mode='rt')
-
+        
         meta['pc'] = np.array([pc] * self.opt.num_grasps_per_object)[:, :, :3]
-        meta['grasp_rt'] = np.array(output_grasps).reshape(
-            len(output_grasps), -1)
+
+        if len(np.array(output_grasps).shape) == 4:
+            #Reshape it to (num_grasps, 2, 16)
+            meta['grasp_rt'] = np.array(output_grasps).reshape(
+                len(output_grasps), -1)
+            meta['target_cps'] = np.array(gt_control_points[:, :, :, :3])
+            # meta['grasp_rt'] = np.array(output_grasps).reshape(
+            #     len(output_grasps), 2, -1)
+        else:
+            meta['grasp_rt'] = np.array(output_grasps).reshape(
+                len(output_grasps), -1)
+            meta['target_cps'] = np.array(gt_control_points[:, :, :3])
         # print(meta['grasp_rt'].shape)
 
         meta['pc_pose'] = np.array([utils.inverse_transform(camera_pose)] *
@@ -73,7 +83,10 @@ class GraspSamplingData(BaseDataset):
         meta['cad_scale'] = np.array([cad_scale] *
                                      self.opt.num_grasps_per_object)
         meta['quality'] = np.array(output_qualities)
-        meta['target_cps'] = np.array(gt_control_points[:, :, :3])
+        
+        
+        # print("Control points shape" + str(gt_control_points.shape))
+        # print("targetcps" + str(meta['target_cps'].shape))
         return meta
 
     def __len__(self):

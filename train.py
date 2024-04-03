@@ -27,6 +27,7 @@ def main():
                 t_data = iter_start_time - iter_data_time
             total_steps += opt.batch_size
             epoch_iter += opt.batch_size
+            print(data["grasp_rt"].shape)
             model.set_input(data)
             model.optimize_parameters()
             if total_steps % opt.print_freq == 0:
@@ -83,7 +84,7 @@ def main():
             writer.plot_model_wts(model, epoch)
 
         if epoch % opt.run_test_freq == 0:
-            acc = run_test(epoch, name=opt.name)
+            acc = run_test(epoch, name=opt.name, dual_grasp=opt.dual_grasp)
             writer.plot_acc(acc, epoch)
 
     writer.close()

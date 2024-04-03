@@ -24,6 +24,7 @@ class GraspNetModel:
         self.loss = None
         self.pcs = None
         self.grasps = None
+        self.dual_grasp = opt.dual_grasp
         # load/define networks
         self.net = networks.define_classifier(opt, self.gpu_ids, opt.arch,
                                               opt.init_type, opt.init_gain,
@@ -69,19 +70,22 @@ class GraspNetModel:
         return torch.sigmoid(success)
 
     def forward(self):
+        # print(self.pcs.shape, self.grasps.shape, self.is_train)
         return self.net(self.pcs, self.grasps, train=self.is_train)
 
     def backward(self, out):
         if self.opt.arch == 'vae':
             predicted_cp, confidence, mu, logvar = out
+            # print(predicted_cp.shape)
             predicted_cp = utils.transform_control_points(
-                predicted_cp, predicted_cp.shape[0], device=self.device)
+                predicted_cp, predicted_cp.shape[0], device=self.device, dual_grasp = self.dual_grasp)
             self.reconstruction_loss, self.confidence_loss = self.criterion[1](
                 predicted_cp,
                 self.targets,
                 confidence=confidence,
                 confidence_weight=self.opt.confidence_weight,
-                device=self.device)
+                device=self.device,
+                dual_grasp=self.dual_grasp)
             self.kl_loss = self.opt.kl_loss_weight * self.criterion[0](
                 mu, logvar, device=self.device)
             self.loss = self.kl_loss + self.reconstruction_loss + self.confidence_loss
@@ -165,15 +169,17 @@ class GraspNetModel:
             out = self.forward()
             prediction, confidence = out
             if self.opt.arch == "vae":
+                print("DUAL GRASP", self.dual_grasp)
                 predicted_cp = utils.transform_control_points(
-                    prediction, prediction.shape[0], device=self.device)
+                    prediction, prediction.shape[0], device=self.device, dual_grasp = self.dual_grasp)
                 # print(predicted_cp.shape[0])
                 reconstruction_loss, _ = self.criterion[1](
                     predicted_cp,
                     self.targets,
                     confidence=confidence,
                     confidence_weight=self.opt.confidence_weight,
-                    device=self.device)
+                    device=self.device,
+                    dual_grasp=self.dual_grasp)
                 return reconstruction_loss, 1
             elif self.opt.arch == "gan":
                 predicted_cp = utils.transform_control_points(

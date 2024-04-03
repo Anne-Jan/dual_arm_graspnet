@@ -292,17 +292,17 @@ def get_control_point_tensor(batch_size, use_torch=True, device="cpu", dual_gras
     np.expand_dims(control_points, 0)
     control_points = np.tile(np.expand_dims(control_points, 0),
                              [batch_size, 1, 1])
-    #Maybe remove this is to expand the control points
     if dual_grasp == True:
-        control_points = np.expand_dims(control_points, -2)
-        control_points = np.tile(control_points, [1, 1, 3, 1])
+        #Make it N by 2 by 6 by 3, one control point tensor for each grasp in the grasp pair
+        control_points = np.expand_dims(control_points, 1)
+        control_points = np.tile(control_points, [1, 2, 1, 1])
     if use_torch:
         return torch.tensor(control_points).to(device)
 
     return control_points
 
 
-def transform_control_points(gt_grasps, batch_size, mode='qt', device="cpu"):
+def transform_control_points(gt_grasps, batch_size, mode='qt', device="cpu", dual_grasp=False):
     """
       Transforms canonical points using gt_grasps.
       mode = 'qt' expects gt_grasps to have (batch_size x 7) where each 
@@ -314,21 +314,41 @@ def transform_control_points(gt_grasps, batch_size, mode='qt', device="cpu"):
     assert (mode == 'qt' or mode == 'rt'), mode
     grasp_shape = gt_grasps.shape
     if mode == 'qt':
-        assert (len(grasp_shape) == 2), grasp_shape
-        assert (grasp_shape[-1] == 7), grasp_shape
-        control_points = get_control_point_tensor(batch_size, device=device)
-        num_control_points = control_points.shape[1]
-        input_gt_grasps = gt_grasps
+        if dual_grasp == True:
+            assert (len(grasp_shape) == 2), grasp_shape
+            assert (grasp_shape[-1] == 7), grasp_shape
+            control_points = get_control_point_tensor(batch_size, device=device, dual_grasp=True)
+            num_control_points = control_points.shape[2]
+            num_grasps = control_points.shape[1]
+            input_gt_grasps = gt_grasps
+            #Make it an array of n by 2 by 6 by 3
 
-        gt_grasps = torch.unsqueeze(input_gt_grasps,
-                                    1).repeat(1, num_control_points, 1)
+            # gt_grasps = torch.unsqueeze(input_gt_grasps, 1).repeat(1, num_grasps, num_control_points, 1)
+            input_gt_grasps1 = torch.unsqueeze(input_gt_grasps, 1)
+            gt_grasps = torch.unsqueeze(input_gt_grasps1, 1).repeat(1, num_grasps, num_control_points, 1)
 
-        gt_q = gt_grasps[:, :, :4]
-        gt_t = gt_grasps[:, :, 4:]
-        gt_control_points = qrot(gt_q, control_points)
-        gt_control_points += gt_t
+            print("shape", gt_grasps.shape)
+            gt_q = gt_grasps[:, :, :, :4]
+            gt_t = gt_grasps[:, :, :, 4:]
+            gt_control_points = qrot(gt_q, control_points)
+            gt_control_points += gt_t
+            return gt_control_points
+        else:
+            assert (len(grasp_shape) == 2), grasp_shape
+            assert (grasp_shape[-1] == 7), grasp_shape
+            control_points = get_control_point_tensor(batch_size, device=device)
+            num_control_points = control_points.shape[1]
+            input_gt_grasps = gt_grasps
 
-        return gt_control_points
+            gt_grasps = torch.unsqueeze(input_gt_grasps,
+                                        1).repeat(1, num_control_points, 1)
+            print("shape", gt_grasps.shape)
+            gt_q = gt_grasps[:, :, :4]
+            gt_t = gt_grasps[:, :, 4:]
+            gt_control_points = qrot(gt_q, control_points)
+            gt_control_points += gt_t
+            
+            return gt_control_points
     else:
         assert (len(grasp_shape) == 3), grasp_shape
         assert (grasp_shape[1] == 4 and grasp_shape[2] == 4), grasp_shape
@@ -370,28 +390,29 @@ def transform_control_points_numpy(gt_grasps, batch_size, mode='qt'):
             control_points = get_control_point_tensor(batch_size, use_torch=False, dual_grasp=True)
             shape = control_points.shape
             ones = np.ones((shape[0], shape[1],shape[2],1), dtype=np.float32)
-            #probably change everyhting but at least the shape is correct now
-            # ones = np.broadcast_to(ones, shape)
             control_points = np.concatenate((control_points, ones), -1)
-            shape = control_points.shape
-            ones = np.ones((shape[0], shape[1], 1, shape[3]), dtype=np.float32)
+            # shape = control_points.shape
+            # ones = np.ones((shape[0], shape[1], 1, shape[3]), dtype=np.float32)
             # print(ones.shape)
-            control_points = np.concatenate((control_points, ones), -2)
-            #Size is n by 6 by 3 by 3
-            # control_points = np.concatenate((control_points, ones), -1)
-            print(control_points.shape, gt_grasps.shape)
-            return np.matmul(control_points, gt_grasps)
-            return np.matmul(control_points, np.transpose(gt_grasps, (0, 2, 1)))
+            # control_points = np.concatenate((control_points, ones), -2)
+            # print(control_points.shape, gt_grasps.shape)
+
+            #For each grasp in the batch, we have a control point tensor and a grasp transformation matrix
+            #We want to multiply the control point tensor by the grasp transformation matrix
+            #This will give us the transformed control points for each grasp
+            # print(np.matmul(control_points, np.transpose(gt_grasps, (0, 1, 3, 2))).shape)
+            # print(np.matmul(control_points, gt_grasps).shape)
+            # return np.matmul(control_points, gt_grasps)
+            return np.matmul(control_points, np.transpose(gt_grasps, (0, 1, 3, 2)))
         else:
             assert (len(grasp_shape) == 3), grasp_shape
             assert (grasp_shape[1] == 4 and grasp_shape[2] == 4), grasp_shape
             control_points = get_control_point_tensor(batch_size, use_torch=False)
             shape = control_points.shape
             ones = np.ones((shape[0], shape[1], 1), dtype=np.float32)
-            print(control_points.shape, ones.shape)
             control_points = np.concatenate((control_points, ones), -1)
-            print(control_points.shape, gt_grasps.shape)
-            print(np.matmul(control_points, np.transpose(gt_grasps, (0, 2, 1))).shape)
+            # print(control_points.shape, gt_grasps.shape, np.transpose(gt_grasps, (0, 2, 1)).shape)
+            # print(np.matmul(control_points, np.transpose(gt_grasps, (0, 2, 1))).shape)
             return np.matmul(control_points, np.transpose(gt_grasps, (0, 2, 1)))
 
 

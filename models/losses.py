@@ -42,18 +42,26 @@ def control_point_l1_loss(pred_control_points,
                           gt_control_points,
                           confidence=None,
                           confidence_weight=None,
-                          device="cpu"):
+                          device="cpu", dual_grasp=False):
     """
       Computes the l1 loss between the predicted control points and the
       groundtruth control points on the gripper.
     """
     #print('control_point_l1_loss', pred_control_points.shape,
     #      gt_control_points.shape)
+    print(pred_control_points.shape, gt_control_points.shape)
+    print(torch.sum(pred_control_points))
+    
     error = torch.sum(torch.abs(pred_control_points - gt_control_points), -1)
     error = torch.mean(error, -1)
     if confidence is not None:
         assert (confidence_weight is not None)
-        error *= confidence
+        if dual_grasp:
+            # print('error', error.shape, "confidence", torch.unsqueeze(confidence, 1).repeat(1,2).shape)
+
+            error = error * torch.unsqueeze(confidence, 1).repeat(1,2)
+        else:
+            error *= confidence
         confidence_term = torch.mean(
             torch.log(torch.max(
                 confidence,
