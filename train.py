@@ -27,7 +27,6 @@ def main():
                 t_data = iter_start_time - iter_data_time
             total_steps += opt.batch_size
             epoch_iter += opt.batch_size
-            print(data["grasp_rt"].shape)
             model.set_input(data)
             model.optimize_parameters()
             if total_steps % opt.print_freq == 0:

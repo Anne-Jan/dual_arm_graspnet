@@ -107,24 +107,46 @@ class GraspSampler(nn.Module):
         self.device = device
 
     def create_decoder(self, model_scale, pointnet_radius, pointnet_nclusters,
-                       num_input_features):
+                       num_input_features, dual_grasp=False):
         # The number of input features for the decoder is 3+latent space where 3
         # represents the x, y, z position of the point-cloud
         self.decoder = base_network(pointnet_radius, pointnet_nclusters,
                                     model_scale, num_input_features)
-        self.q = nn.Linear(model_scale * 1024, 4)
-        self.t = nn.Linear(model_scale * 1024, 3)
+        if dual_grasp:
+            self.dual_grasp = True
+            self.qleft = nn.Linear(model_scale * 1024, 4)
+            self.tleft = nn.Linear(model_scale * 1024, 3)
+            self.qright = nn.Linear(model_scale * 1024, 4)
+            self.tright = nn.Linear(model_scale * 1024, 3)
+        else:
+            self.dual_grasp = False
+            self.q = nn.Linear(model_scale * 1024, 4)
+            self.t = nn.Linear(model_scale * 1024, 3)
         self.confidence = nn.Linear(model_scale * 1024, 1)
 
-    def decode(self, xyz, z):
+    def decode(self, xyz, z, dual_grasp=False):
         xyz_features = self.concatenate_z_with_pc(xyz,
                                                   z).transpose(-1,
                                                                1).contiguous()
         for module in self.decoder[0]:
             xyz, xyz_features = module(xyz, xyz_features)
         x = self.decoder[1](xyz_features.squeeze(-1))
-        predicted_qt = torch.cat(
-            (F.normalize(self.q(x), p=2, dim=-1), self.t(x)), -1)
+        dual_grasp = self.dual_grasp
+        if dual_grasp:
+            # predicted_qt = torch.cat(
+            #     (F.normalize(self.qleft(x), p=2, dim=-1), self.tleft(x),
+            #     F.normalize(self.qright(x), p=2, dim=-1), self.tright(x)) -1)
+            predicted_qtleft = torch.cat(
+                (F.normalize(self.qleft(x), p=2, dim=-1), self.tleft(x)), -1)
+            predicted_qtright = torch.cat(
+                (F.normalize(self.qright(x), p=2, dim=-1), self.tright(x)), -1)
+            # print(predicted_qtleft.shape, predicted_qtright.shape)
+            #Combine the two grasps with size (batch_size, 14)
+            predicted_qt = torch.cat((predicted_qtleft, predicted_qtright), -1)
+            # print(predicted_qt.shape)
+        else:
+            predicted_qt = torch.cat(
+                (F.normalize(self.q(x), p=2, dim=-1), self.t(x)), -1)
         # print(predicted_qt.shape)
         return predicted_qt, torch.sigmoid(self.confidence(x)).squeeze()
 
@@ -151,7 +173,7 @@ class GraspSamplerVAE(GraspSampler):
         self.create_encoder(model_scale, pointnet_radius, pointnet_nclusters, dual_grasp)
 
         self.create_decoder(model_scale, pointnet_radius, pointnet_nclusters,
-                            latent_size + 3)
+                            latent_size + 3, dual_grasp)
         self.create_bottleneck(model_scale * 1024, latent_size)
 
     def create_encoder(
@@ -206,7 +228,7 @@ class GraspSamplerVAE(GraspSampler):
         z = self.encode(pc, input_features)
         mu, logvar = self.bottleneck(z)
         z = self.reparameterize(mu, logvar)
-        qt, confidence = self.decode(pc, z)
+        qt, confidence = self.decode(pc, z, self.dual_grasp)
         return qt, confidence, mu, logvar
 
     def forward_test(self, pc, grasp):
@@ -215,7 +237,7 @@ class GraspSamplerVAE(GraspSampler):
             -1).transpose(-1, 1).contiguous()
         z = self.encode(pc, input_features)
         mu, _ = self.bottleneck(z)
-        qt, confidence = self.decode(pc, mu)
+        qt, confidence = self.decode(pc, mu, self.dual_grasp)
         return qt, confidence
 
     def sample_latent(self, batch_size):
@@ -314,8 +336,38 @@ class GraspEvaluator(nn.Module):
         adds a binary auxiliary feature that indicates whether each point
         belongs to the object or to the gripper.
         """
+        # print(gripper_pc.shape)
         pc_shape = pc.shape
         gripper_shape = gripper_pc.shape
+        if len(gripper_pc.shape) == 4:
+            #make two gripper point clouds of size (batch_size, 6, 3)
+            gripper_pc1 = gripper_pc[:, 0, :, :]
+            gripper_pc2 = gripper_pc[:, 1, :, :]
+            # print(gripper_pc1.shape, gripper_pc2.shape)
+            l0_xyz1 = torch.cat((pc, gripper_pc1), 1)
+            l0_xyz2 = torch.cat((pc, gripper_pc2), 1)
+            labels1 = [
+                torch.ones(pc.shape[1], 1, dtype=torch.float32),
+                torch.zeros(gripper_pc1.shape[1], 1, dtype=torch.float32)
+            ]
+            labels1 = torch.cat(labels1, 0)
+            labels1.unsqueeze_(0)
+            labels1 = labels1.repeat(pc_shape[0], 1, 1)
+            labels2 = [
+                torch.ones(pc.shape[1], 1, dtype=torch.float32),
+                torch.zeros(gripper_pc2.shape[1], 1, dtype=torch.float32)
+            ]
+            labels2 = torch.cat(labels2, 0)
+            labels2.unsqueeze_(0)
+            labels2 = labels2.repeat(pc_shape[0], 1, 1)
+            l0_points1 = torch.cat([l0_xyz1, labels1.to(self.device)],
+                                   -1).transpose(-1, 1)
+            l0_points2 = torch.cat([l0_xyz2, labels2.to(self.device)],
+                                      -1).transpose(-1, 1)
+            return torch.cat((l0_xyz1, l0_xyz2), 0), torch.cat((l0_points1, l0_points2), 0)
+
+        
+
         assert (len(pc_shape) == 3)
         assert (len(gripper_shape) == 3)
         assert (pc_shape[0] == gripper_shape[0])

@@ -314,18 +314,36 @@ def transform_control_points(gt_grasps, batch_size, mode='qt', device="cpu", dua
     assert (mode == 'qt' or mode == 'rt'), mode
     grasp_shape = gt_grasps.shape
     if mode == 'qt':
-        if dual_grasp == True:
+        if dual_grasp == True or grasp_shape[-1] == 14:
             assert (len(grasp_shape) == 2), grasp_shape
-            assert (grasp_shape[-1] == 7), grasp_shape
-            control_points = get_control_point_tensor(batch_size, device=device, dual_grasp=True)
-            num_control_points = control_points.shape[2]
-            num_grasps = control_points.shape[1]
+            assert (grasp_shape[-1] == 14), grasp_shape
+            control_points = get_control_point_tensor(batch_size, device=device)
+            num_control_points = control_points.shape[1]
             input_gt_grasps = gt_grasps
+            #split the gt_grasps into two parts, one for each grasp in the pair
+            #size of each part is (batch_size x 7)
+            input_gt_grasps1 = input_gt_grasps[:, :7]
+            input_gt_grasps2 = input_gt_grasps[:, 7:]
+            # print("shape", input_gt_grasps1.shape, input_gt_grasps2.shape)
             #Make it an array of n by 2 by 6 by 3
 
             # gt_grasps = torch.unsqueeze(input_gt_grasps, 1).repeat(1, num_grasps, num_control_points, 1)
-            input_gt_grasps1 = torch.unsqueeze(input_gt_grasps, 1)
-            gt_grasps = torch.unsqueeze(input_gt_grasps1, 1).repeat(1, num_grasps, num_control_points, 1)
+            gt_grasps1 = torch.unsqueeze(input_gt_grasps1, 1).repeat(1, num_control_points, 1)
+            gt_grasps2 = torch.unsqueeze(input_gt_grasps2, 1).repeat(1, num_control_points, 1)
+
+            gt_q1 = gt_grasps1[:, :, :4]
+            gt_t1 = gt_grasps1[:, :, 4:]
+            gt_q2 = gt_grasps2[:, :, :4]
+            gt_t2 = gt_grasps2[:, :, 4:]
+
+            gt_control_points1 = qrot(gt_q1, control_points)
+            gt_control_points1 += gt_t1
+            gt_control_points2 = qrot(gt_q2, control_points)
+            gt_control_points2 += gt_t2
+            # print("shape", gt_control_points1.shape, gt_control_points2.shape)
+            #Combine them into shape (batch_size x 2 x 6 x 3)
+            # print(torch.stack((gt_control_points1, gt_control_points2), 1).shape)
+            return torch.stack((gt_control_points1, gt_control_points2), 1)
 
             print("shape", gt_grasps.shape)
             gt_q = gt_grasps[:, :, :, :4]
@@ -527,6 +545,24 @@ def mkdir(path):
 def control_points_from_rot_and_trans(grasp_eulers,
                                       grasp_translations,
                                       device="cpu"):
+    if grasp_eulers.shape[1] == 6:
+        # print("duals")
+        grasp_eulers1 = grasp_eulers[:, :3]
+        grasp_eulers2 = grasp_eulers[:, 3:]
+        rot1 = tc_rotation_matrix(grasp_eulers1[:, 0],
+                                  grasp_eulers1[:, 1],
+                                  grasp_eulers1[:, 2],
+                                  batched=True)
+        rot2 = tc_rotation_matrix(grasp_eulers2[:, 0],
+                                    grasp_eulers2[:, 1],
+                                    grasp_eulers2[:, 2],
+                                    batched=True)
+        grasp_pc = get_control_point_tensor(grasp_eulers.shape[0], device=device)
+        grasp_pc1 = torch.matmul(grasp_pc, rot1.permute(0, 2, 1))
+        grasp_pc2 = torch.matmul(grasp_pc, rot2.permute(0, 2, 1))
+        grasp_pc1 += grasp_translations[:, :3].unsqueeze(1).expand(-1, grasp_pc1.shape[1], -1)
+        grasp_pc2 += grasp_translations[:, 3:].unsqueeze(1).expand(-1, grasp_pc2.shape[1], -1)
+        return torch.stack((grasp_pc1, grasp_pc2), 1)
     rot = tc_rotation_matrix(grasp_eulers[:, 0],
                              grasp_eulers[:, 1],
                              grasp_eulers[:, 2],
@@ -535,23 +571,76 @@ def control_points_from_rot_and_trans(grasp_eulers,
     grasp_pc = torch.matmul(grasp_pc, rot.permute(0, 2, 1))
     grasp_pc += grasp_translations.unsqueeze(1).expand(-1, grasp_pc.shape[1],
                                                        -1)
+    # print(grasp_pc.shape)
     return grasp_pc
 
 
 def rot_and_trans_to_grasps(euler_angles, translations, selection_mask):
+    print("euler_angles", euler_angles.shape, "translations", translations.shape, "selection_mask", selection_mask.shape)
+    if euler_angles.shape[2] == 6:
+        grasps =[]
+        grasps1 = []
+        grasps2 = []
+        refine_indexes, sample_indexes = np.where(selection_mask)
+        #Split the euler angles into two parts, one for each grasp in the pair
+        euler_angles1 = euler_angles[:, :, :3]
+        euler_angles2 = euler_angles[:, :, 3:]
+        translations1 = translations[:, :, :3]
+        translations2 = translations[:, :, 3:]
+        #Also split the selection mask into two parts, from 26x400 to 26x200
+        selection_mask1 = selection_mask[:, :200]
+        selection_mask2 = selection_mask[:, 200:]
+        refine_indexes1, sample_indexes1 = np.where(selection_mask1)
+        refine_indexes2, sample_indexes2 = np.where(selection_mask2)
+        print(refine_indexes1.shape, sample_indexes1.shape, euler_angles1.shape, translations1.shape)
+        if len(refine_indexes1) < len(refine_indexes2):
+            refine_indexes = refine_indexes1
+            sample_indexes = sample_indexes1
+        else:
+            refine_indexes = refine_indexes2
+            sample_indexes = sample_indexes2
+        for refine_index, sample_index in zip(refine_indexes, sample_indexes):
+            # print("refine_index", refine_index, "sample_index", sample_index)
+            rt1 = tra.euler_matrix(*euler_angles1[refine_index, sample_index, :])
+            rt1[:3, 3] = translations1[refine_index, sample_index, :]
+            rt2 = tra.euler_matrix(*euler_angles2[refine_index, sample_index, :])
+            rt2[:3, 3] = translations2[refine_index, sample_index, :]
+            #Combine them into nx2x4x4 instead of nx4x4
+            # rt1 = np.expand_dims(rt1, 0)
+            # rt2 = np.expand_dims(rt2, 0)
+            # print("rt1", rt1.shape, rt2.shape)
+            # print("concatenated", np.concatenate((rt1, rt2), 0).shape)
+            #Simply append them both to the list
+            grasps.append(rt1)
+            grasps.append(rt2)
+        return grasps
     grasps = []
     refine_indexes, sample_indexes = np.where(selection_mask)
+    # print(refine_indexes.shape, sample_indexes.shape)
     for refine_index, sample_index in zip(refine_indexes, sample_indexes):
         rt = tra.euler_matrix(*euler_angles[refine_index, sample_index, :])
         rt[:3, 3] = translations[refine_index, sample_index, :]
+        print("rt", rt.shape)
         grasps.append(rt)
     return grasps
 
 
 def convert_qt_to_rt(grasps):
-    Ts = grasps[:, 4:]
-    Rs = qeuler(grasps[:, :4], "zyx")
-    return Rs, Ts
+    if grasps.shape[-1] == 14:
+        # reshape it to (batch_size, 2, 7)
+        grasps1 = grasps[:, :7]
+        grasps2 = grasps[:, 7:]
+        Ts1 = grasps1[:, 4:]
+        Rs1 = qeuler(grasps1[:, :4], "zyx")
+        Ts2 = grasps2[:, 4:]
+        Rs2 = qeuler(grasps2[:, :4], "zyx")
+        # print(Rs1.shape, Ts1.shape, Rs2.shape, Ts2.shape)
+        return torch.cat((Rs1, Rs2), -1), torch.cat((Ts1, Ts2), -1)
+        #Combine them into
+    else:
+        Ts = grasps[:, 4:]
+        Rs = qeuler(grasps[:, :4], "zyx")
+        return Rs, Ts
 
 
 def qeuler(q, order, epsilon=0):
@@ -708,13 +797,17 @@ def get_inlier_grasp_indices(grasp_list, query_point, threshold=1.0, device="cpu
                                              grasps.shape[0],
                                              device=device)
         mid_points = get_mid_of_contact_points(grasp_cps)
+        print(mid_points.shape)
         dist = torch.norm(mid_points - query_point, 2, dim=-1)
         indices_to_keep.append(torch.where(dist <= threshold))
     return indices_to_keep
 
 
 def get_mid_of_contact_points(grasp_cps):
-    mid = (grasp_cps[:, 0, :] + grasp_cps[:, 1, :]) / 2.0
+    if len(grasp_cps.shape) == 4:
+        mid = (grasp_cps[:, :, 0, :] + grasp_cps[:, :, 1, :]) / 2.0
+    else:
+        mid = (grasp_cps[:, 0, :] + grasp_cps[:, 1, :]) / 2.0
     return mid
 
 

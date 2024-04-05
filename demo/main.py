@@ -69,6 +69,9 @@ def make_parser():
                             required=True,
                             type=str,
                             help='path to root directory of the dataset.')
+    parser.add_argument("--dual_grasp",
+                        action="store_true",
+                        help="If enabled, the model will predict two grasps.")
     return parser
 
 
@@ -127,6 +130,7 @@ def main(args):
     args = parser.parse_args()
     grasp_sampler_args = utils.read_checkpoint_args(args.grasp_sampler_folder)
     grasp_sampler_args.is_train = False
+
     grasp_evaluator_args = utils.read_checkpoint_args(
         args.grasp_evaluator_folder)
     grasp_evaluator_args.continue_train = True
@@ -177,6 +181,9 @@ def main(args):
             object_pc = data['smoothed_object_pc']
             generated_grasps, generated_scores = estimator.generate_and_refine_grasps(
                 object_pc)
+            # Only show the first grasp
+            generated_grasps = generated_grasps[0:2]
+            generated_scores = generated_scores[0:2]
             print(np.array(generated_grasps).shape)
             mlab.figure(bgcolor=(1, 1, 1))
             draw_scene(

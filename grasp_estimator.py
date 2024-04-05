@@ -19,6 +19,12 @@ class GraspEstimator:
     def __init__(self, grasp_sampler_opt, grasp_evaluator_opt, opt):
         self.grasp_sampler_opt = grasp_sampler_opt
         self.grasp_evaluator_opt = grasp_evaluator_opt
+        try:
+            self.grasp_evaluator_opt.dual_grasp = grasp_sampler_opt['dual_grasp']
+            self.grasp_sampler_opt.dual_grasp = grasp_sampler_opt['dual_grasp']
+        except:
+            self.grasp_evaluator_opt.dual_grasp = False
+            self.grasp_sampler_opt.dual_grasp = False
         self.opt = opt
         self.target_pc_size = opt.target_pc_size
         self.num_refine_steps = opt.refine_steps
@@ -45,11 +51,15 @@ class GraspEstimator:
         self.grasp_sampler = create_model(grasp_sampler_opt)
 
     def keep_inliers(self, grasps, confidences, z, pc, inlier_indices_list):
+        print("before", grasps[0].shape)
         for i, inlier_indices in enumerate(inlier_indices_list):
+            
             grasps[i] = grasps[i][inlier_indices]
-            confidences[i] = confidences[i][inlier_indices]
+            confidences[i] = confidences[i][inlier_indices[0]]
+            # print(len(confidences))
             z[i] = z[i][inlier_indices]
             pc[i] = pc[i][inlier_indices]
+        print("after", grasps[0].shape)
 
     def generate_and_refine_grasps(
         self,
@@ -62,10 +72,12 @@ class GraspEstimator:
                                                             self.device),
                                                         threshold=1.0,
                                                         device=self.device)
-        self.keep_inliers(grasps_list, confidence_list, z_list, pc_list,
-                          inlier_indices)
+        # print(np.array(grasps_list).shape, np.array(confidence_list).shape, np.array(z_list).shape, np.array(pc_list).shape, np.array(inlier_indices).shape)
+        # self.keep_inliers(grasps_list, confidence_list, z_list, pc_list,
+                        #   inlier_indices)
         improved_eulers, improved_ts, improved_success = [], [], []
         for pc, grasps in zip(pc_list, grasps_list):
+            # print(grasps.shape)
             out = self.refine_grasps(pc, grasps, self.refine_method,
                                      self.num_refine_steps)
             improved_eulers.append(out[0])

@@ -49,8 +49,7 @@ def control_point_l1_loss(pred_control_points,
     """
     #print('control_point_l1_loss', pred_control_points.shape,
     #      gt_control_points.shape)
-    print(pred_control_points.shape, gt_control_points.shape)
-    print(torch.sum(pred_control_points))
+    # print(pred_control_points.shape, gt_control_points.shape)
     
     error = torch.sum(torch.abs(pred_control_points - gt_control_points), -1)
     error = torch.mean(error, -1)
@@ -58,7 +57,7 @@ def control_point_l1_loss(pred_control_points,
         assert (confidence_weight is not None)
         if dual_grasp:
             # print('error', error.shape, "confidence", torch.unsqueeze(confidence, 1).repeat(1,2).shape)
-
+            #Do it twice for each grasp, only one confidence value
             error = error * torch.unsqueeze(confidence, 1).repeat(1,2)
         else:
             error *= confidence
