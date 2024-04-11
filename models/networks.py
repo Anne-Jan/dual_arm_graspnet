@@ -187,6 +187,7 @@ class GraspSamplerVAE(GraspSampler):
         # position of the point-cloud and the flattened 4x4=16 grasp pose matrix
         #If using dual grasps the number of the input features is 35: the x, y, z
         # position of the point-cloud and the flattened 2x4x4=32 grasp pose matrix
+        # print("dual_grasp", dual_grasp)
         if dual_grasp:
             self.encoder = base_network(pointnet_radius, pointnet_nclusters,
                                         model_scale, 35)

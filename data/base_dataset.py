@@ -221,6 +221,8 @@ class BaseDataset(data.Dataset):
 
             return output_grasps, output_qualities
         if not return_all_grasps:
+            # print("here")
+            # print(positive_grasps.shape, positive_qualities.shape)
             positive_grasps, positive_qualities = cluster_grasps(
                 positive_grasps, positive_qualities)
             negative_grasps, negative_qualities = cluster_grasps(

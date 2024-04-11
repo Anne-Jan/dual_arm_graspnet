@@ -51,10 +51,10 @@ class GraspSamplingData(BaseDataset):
             selected_quality = pos_qualities[selected_grasp_index[0]][
                 selected_grasp_index[1]]
             output_qualities.append(selected_quality)
-            #Dot product with camera pose, differentiate between 1 and 2 grasps
+            #Dot product with camera pose, differentiate between 1 and 2 grasps Probably not relevant for my training data
             if len(selected_grasp.shape) == 3:
-                selected_grasp[0] = camera_pose.dot(selected_grasp[0])
-                selected_grasp[1] = camera_pose.dot(selected_grasp[1])
+                # selected_grasp[0] = camera_pose.dot(selected_grasp[0])
+                # selected_grasp[1] = camera_pose.dot(selected_grasp[1])
                 output_grasps.append(selected_grasp)
             else:
                 output_grasps.append(camera_pose.dot(selected_grasp))

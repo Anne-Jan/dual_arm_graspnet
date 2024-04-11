@@ -169,7 +169,7 @@ class GraspNetModel:
             out = self.forward()
             prediction, confidence = out
             if self.opt.arch == "vae":
-                print("DUAL GRASP", self.dual_grasp)
+                # print("DUAL GRASP", self.dual_grasp)
                 predicted_cp = utils.transform_control_points(
                     prediction, prediction.shape[0], device=self.device, dual_grasp = self.dual_grasp)
                 # print(predicted_cp.shape[0])

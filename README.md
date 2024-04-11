@@ -84,7 +84,14 @@ The dataset can be downloaded from [here](https://drive.google.com/open?id=1GkFr
 2) `meshes` folder: has the folder for all the meshes used. Except `cylinder` and `box` the rest of the folders are empty and need to be populated by the downloaded meshes from shapenet.
 3) `splits` folder: contains the train/test split for each of the categories.
 
-Verify the dataset by running `python grasp_data_reader.py` to visualize the evaluator data and `python grasp_data_reader.py --vae-mode` to visualize only the positive grasps.
+# Dataset DA2
+
+Similar structure:
+1) `grasps` folder: contains all the grasps pairs for each object.
+2) `meshes` folder: has the folder for all the meshes used, not organized by object type like with the shapenet data
+3) `splits` folder: contains the train/test split for each of the categories.
+
+These three folders should be present under `shapenet_mmodels/da2_dataset/`
 
 ## Training
 
@@ -105,6 +112,19 @@ GAN Training Example Command:
 python3 train.py  --help
 ```
 
+# Training Dual grasp
+
+To train the grasp sampler (vae) with a configuration that works on a gpu with 8GB vram run:
+
+```shell
+python3 train.py  --arch vae  --dataset_root_folder shapenet_models/da2_dataset/  --num_grasps_per_object 32 --niter 1000 --niter_decay 10000 --save_epoch_freq 50 --save_latest_freq 250 --run_test_freq 10 --dual_grasp True
+```
+
+To look at the performance after training run"
+
+```shell
+python -m demo.main --grasp_sampler_folder checkpoints/vae_lr_0002_bs_32_scale_1_npoints_128_radius_02_latent_size_2/ --refinement_method gradient --dual_grasp
+```
 ## Quantitative Evaluation
 
 I have not converted the code for doing quantitative evaluation

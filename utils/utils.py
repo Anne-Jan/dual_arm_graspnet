@@ -21,6 +21,8 @@ def farthest_points(data,
                     return_center_indexes=False,
                     return_distances=False,
                     verbose=False):
+    
+    # print(nclusters)
     """
       Performs farthest point sampling on data points.
       Args:
@@ -58,6 +60,8 @@ def farthest_points(data,
 
         broadcasted_data = np.tile(np.expand_dims(data[index], 0), shape)
         new_distances = dist_func(broadcasted_data, data)
+        # print(distances.shape, new_distances.shape)
+        # print(np.minimum(distances, new_distances))
         distances = np.minimum(distances, new_distances)
         clusters[distances == new_distances] = iter
         if verbose:
