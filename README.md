@@ -91,7 +91,7 @@ Similar structure:
 2) `meshes` folder: has the folder for all the meshes used, not organized by object type like with the shapenet data
 3) `splits` folder: contains the train/test split for each of the categories.
 
-These three folders should be present under `shapenet_mmodels/da2_dataset/`
+These three folders should be present under `shapenet_models/da2_dataset/`
 
 ## Training
 

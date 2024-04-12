@@ -52,9 +52,9 @@ def control_point_l1_loss(pred_control_points,
     # print(pred_control_points.shape, gt_control_points.shape)
     
     error = torch.sum(torch.abs(pred_control_points - gt_control_points), -1)
-    print('error', error.shape)
+    # print('error', error.shape)
     error = torch.mean(error, -1)
-    print('error', error.shape)
+    # print('error', error.shape)
     
     if confidence is not None:
         assert (confidence_weight is not None)
