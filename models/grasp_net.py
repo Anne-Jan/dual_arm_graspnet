@@ -2,6 +2,8 @@ import torch
 from . import networks
 from os.path import join
 import utils.utils as utils
+from utils.visualization_utils import *
+
 
 
 class GraspNetModel:
@@ -52,6 +54,18 @@ class GraspNetModel:
     def set_input(self, data):
         input_pcs = torch.from_numpy(data['pc']).contiguous()
         input_grasps = torch.from_numpy(data['grasp_rt']).float()
+        self.og_grasps = data['og_grasps']
+        self.pc = data['pc']
+        #reshape from 32 x 2 x 4 x 4 to 64 x 4 x 4
+        if len(self.og_grasps.shape) == 4:
+            self.og_grasps = self.og_grasps.reshape(-1, 4, 4)
+        # mlab.figure(bgcolor=(1, 1, 1))
+        # draw_scene(
+        #         og_pc,
+        #         # grasps=og_grasps,
+        #     )
+        # mlab.show()
+        # print(xd)
         if self.opt.arch == "evaluator":
             targets = torch.from_numpy(data['labels']).float()
         else:
@@ -71,6 +85,20 @@ class GraspNetModel:
 
     def forward(self):
         # print(self.pcs.shape, self.grasps.shape, self.is_train)
+        # mlab.figure(bgcolor=(1, 1, 1))
+        # # self.og_grasps = self.og_grasps.cpu().detach().numpy()
+        # # self.og_grasps = self.og_grasps.reshape(-1, 6, 3)
+        # # print(targets.shape)
+        # pc = self.pcs[0].cpu().detach().numpy()
+        # # print(self.og_grasps.shape)
+        # # print(pc.shape, self.og_grasps.shape)
+        # draw_scene(
+        #         pc,
+        #         grasps=self.og_grasps,
+        #         # target_cps=targets,
+        #     )
+        # mlab.show()
+        # print(xd)
         return self.net(self.pcs, self.grasps, train=self.is_train)
 
     def backward(self, out):
@@ -192,7 +220,16 @@ class GraspNetModel:
                     device=self.device)
                 return reconstruction_loss, 1
             else:
-
-                predicted = torch.round(torch.sigmoid(prediction)).squeeze()
+                if self.dual_grasp:
+                    predicted = torch.sigmoid(prediction).squeeze()
+                    predicted = torch.tensor_split(predicted, 2, dim=0)
+    
+                    predicted = predicted [0].add(predicted [1])
+                    #Devide all values by 2
+                    predicted  = predicted  / 2.0
+                    predicted = torch.round(predicted)
+                else: 
+                    predicted = torch.round(torch.sigmoid(prediction)).squeeze()
+               
                 correct = (predicted == self.targets).sum().item()
                 return correct, len(self.targets)

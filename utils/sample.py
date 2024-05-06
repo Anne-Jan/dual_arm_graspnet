@@ -200,8 +200,15 @@ def in_collision_with_gripper(object_mesh, gripper_transforms, gripper_name, sil
     gripper_meshes = [create_gripper(gripper_name).hand]
     min_distance = []
     for tf in tqdm(gripper_transforms, disable=silent):
-        min_distance.append(np.min([manager.min_distance_single(
+        if tf.shape == (4, 4):
+            min_distance.append(np.min([manager.min_distance_single(
             gripper_mesh, transform=tf) for gripper_mesh in gripper_meshes]))
+        else:
+            # min_distance.append(np.min([manager.min_distance_single(
+            # gripper_mesh, transform=tf[0]) for gripper_mesh in gripper_meshes]))
+            min_distance.append((np.min([manager.min_distance_single(
+            gripper_mesh, transform=tf[0]) for gripper_mesh in gripper_meshes]), np.min([manager.min_distance_single(
+            gripper_mesh, transform=tf[1]) for gripper_mesh in gripper_meshes])))
 
     return [d == 0 for d in min_distance], min_distance
 
@@ -221,36 +228,99 @@ def grasp_quality_point_contacts(transforms, collisions, object_mesh, gripper_na
     Returns:
         list of float -- quality of grasps [0..1]
     """
-    res = []
+    
     gripper = create_gripper(gripper_name)
-    if trimesh.ray.has_embree:
-        intersector = trimesh.ray.ray_pyembree.RayMeshIntersector(
-            object_mesh, scale_to_box=True)
-    else:
-        intersector = trimesh.ray.ray_triangle.RayMeshIntersector(object_mesh)
-    for p, colliding in tqdm(zip(transforms, collisions), total=len(transforms), disable=silent):
-        if colliding:
-            res.append(-1)
+    if len(np.array(transforms).shape) == 4:
+        transforms1 = [transforms[i][0] for i in range(len(transforms))]
+        transforms2 = [transforms[i][1] for i in range(len(transforms))]
+        res1 = []
+        res2 = []
+        if trimesh.ray.has_embree:
+            intersector = trimesh.ray.ray_pyembree.RayMeshIntersector(
+                object_mesh, scale_to_box=True)
         else:
-            ray_origins, ray_directions = gripper.get_closing_rays(p)
-            locations, index_ray, index_tri = intersector.intersects_location(
-                ray_origins, ray_directions, multiple_hits=False)
-
-            if len(locations) == 0:
-                res.append(0)
+            intersector = trimesh.ray.ray_triangle.RayMeshIntersector(object_mesh)
+        for p, colliding in tqdm(zip(transforms1, collisions), total=len(transforms1), disable=silent):
+            if colliding:
+                res1.append(-1)
             else:
-                # this depends on the width of the gripper
-                valid_locations = np.linalg.norm(
-                    ray_origins[index_ray]-locations, axis=1) < 2.0*gripper.q
+                ray_origins, ray_directions = gripper.get_closing_rays(p)
+                locations, index_ray, index_tri = intersector.intersects_location(
+                    ray_origins, ray_directions, multiple_hits=False)
 
-                if sum(valid_locations) == 0:
+                if len(locations) == 0:
+                    res1.append(0)
+                else:
+                    # this depends on the width of the gripper
+                    valid_locations = np.linalg.norm(
+                        ray_origins[index_ray]-locations, axis=1) < 2.0*gripper.q
+
+                    if sum(valid_locations) == 0:
+                        res1.append(0)
+                    else:
+                        contact_normals = object_mesh.face_normals[index_tri[valid_locations]]
+                        motion_normals = ray_directions[index_ray[valid_locations]]
+                        dot_prods = (motion_normals * contact_normals).sum(axis=1)
+                        res1.append(np.cos(dot_prods).sum() / len(ray_origins))
+        for p, colliding in tqdm(zip(transforms2, collisions), total=len(transforms2), disable=silent):
+            if colliding:
+                res2.append(-1)
+            else:
+                ray_origins, ray_directions = gripper.get_closing_rays(p)
+                locations, index_ray, index_tri = intersector.intersects_location(
+                    ray_origins, ray_directions, multiple_hits=False)
+
+                if len(locations) == 0:
+                    res2.append(0)
+                else:
+                    # this depends on the width of the gripper
+                    valid_locations = np.linalg.norm(
+                        ray_origins[index_ray]-locations, axis=1) < 2.0*gripper.q
+
+                    if sum(valid_locations) == 0:
+                        res2.append(0)
+                    else:
+                        contact_normals = object_mesh.face_normals[index_tri[valid_locations]]
+                        motion_normals = ray_directions[index_ray[valid_locations]]
+                        dot_prods = (motion_normals * contact_normals).sum(axis=1)
+                        res2.append(np.cos(dot_prods).sum() / len(ray_origins))
+        # res = (res1 + res2)/2
+        #add values per element
+        res = [res1[i] + res2[i] for i in range(len(res1))]
+        #divida all values by 2
+        res = [x / 2 for x in res]
+        return res     
+    else:
+        res = []
+        if trimesh.ray.has_embree:
+            intersector = trimesh.ray.ray_pyembree.RayMeshIntersector(
+                object_mesh, scale_to_box=True)
+        else:
+            intersector = trimesh.ray.ray_triangle.RayMeshIntersector(object_mesh)
+        for p, colliding in tqdm(zip(transforms, collisions), total=len(transforms), disable=silent):
+            if colliding:
+                res.append(-1)
+            else:
+                ray_origins, ray_directions = gripper.get_closing_rays(p)
+                locations, index_ray, index_tri = intersector.intersects_location(
+                    ray_origins, ray_directions, multiple_hits=False)
+
+                if len(locations) == 0:
                     res.append(0)
                 else:
-                    contact_normals = object_mesh.face_normals[index_tri[valid_locations]]
-                    motion_normals = ray_directions[index_ray[valid_locations]]
-                    dot_prods = (motion_normals * contact_normals).sum(axis=1)
-                    res.append(np.cos(dot_prods).sum() / len(ray_origins))
-    return res
+                    # this depends on the width of the gripper
+                    valid_locations = np.linalg.norm(
+                        ray_origins[index_ray]-locations, axis=1) < 2.0*gripper.q
+
+                    if sum(valid_locations) == 0:
+                        res.append(0)
+                    else:
+                        contact_normals = object_mesh.face_normals[index_tri[valid_locations]]
+                        motion_normals = ray_directions[index_ray[valid_locations]]
+                        dot_prods = (motion_normals * contact_normals).sum(axis=1)
+                        res.append(np.cos(dot_prods).sum() / len(ray_origins))
+    
+        return res
 
 
 def grasp_quality_antipodal(transforms, collisions, object_mesh, gripper_name='panda', silent=False):

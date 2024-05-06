@@ -62,6 +62,8 @@ def farthest_points(data,
         new_distances = dist_func(broadcasted_data, data)
         # print(distances.shape, new_distances.shape)
         # print(np.minimum(distances, new_distances))
+        #change from n,2 to n
+        new_distances = np.min(new_distances, axis=-1)
         distances = np.minimum(distances, new_distances)
         clusters[distances == new_distances] = iter
         if verbose:
@@ -134,10 +136,16 @@ def perturb_grasp(grasp, num, min_translation, max_translation, min_rotation,
             np.random.uniform(lb, ub)
             for lb, ub in zip(min_rotation, max_rotation)
         ]
+        
         grasp_transformation = tra.euler_matrix(*sampled_rotation)
-        grasp_transformation[:3, 3] = sampled_translation
-        output_grasps.append(np.matmul(grasp, grasp_transformation))
-
+        if len(grasp.shape) == 3:
+            grasp_transformation[:3, 3] = sampled_translation
+            grasp[0] = np.matmul(grasp[0], grasp_transformation)
+            grasp[1] = np.matmul(grasp[1], grasp_transformation)
+            output_grasps.append(grasp)
+        else:
+            grasp_transformation[:3, 3] = sampled_translation
+            output_grasps.append(np.matmul(grasp, grasp_transformation))
     return output_grasps
 
 
@@ -297,7 +305,9 @@ def get_control_point_tensor(batch_size, use_torch=True, device="cpu", dual_gras
     control_points = np.tile(np.expand_dims(control_points, 0),
                              [batch_size, 1, 1])
     if dual_grasp == True:
+        #change the rotation component of the control points to 0
         #Make it N by 2 by 6 by 3, one control point tensor for each grasp in the grasp pair
+       
         control_points = np.expand_dims(control_points, 1)
         control_points = np.tile(control_points, [1, 2, 1, 1])
     if use_torch:

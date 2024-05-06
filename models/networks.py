@@ -7,6 +7,7 @@ import torch.nn.functional as F
 from models import losses
 from torch.nn import Sequential as Seq, Linear as Lin, ReLU, BatchNorm1d as BN
 import pointnet2_ops.pointnet2_modules as pointnet2
+import numpy as np
 
 
 def get_scheduler(optimizer, opt):
@@ -366,6 +367,12 @@ class GraspEvaluator(nn.Module):
             l0_points2 = torch.cat([l0_xyz2, labels2.to(self.device)],
                                       -1).transpose(-1, 1)
             return torch.cat((l0_xyz1, l0_xyz2), 0), torch.cat((l0_points1, l0_points2), 0)
+            #concatenate to make it size batch x 2 x n x n instead of 2 variables of size batch x n x n
+            l0_xyz = torch.stack((l0_xyz1, l0_xyz2), dim = 1)
+            l0_points = torch.stack((l0_points1, l0_points2), dim = 1)
+            print(l0_xyz.shape, l0_points.shape)
+            # return l0_xyz1, l0_points1, l0_xyz2, l0_points2
+            return l0_xyz, l0_points
 
         
 

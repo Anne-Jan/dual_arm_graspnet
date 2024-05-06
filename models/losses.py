@@ -87,6 +87,12 @@ def classification_with_confidence_loss(pred_logit,
       outputing zero confidence. Returns cross entropy loss and the confidence
       regularization term.
     """
+    if len(pred_logit == 2 * len(gt)):
+        pred_logit = torch.tensor_split(pred_logit, 2, dim=0)
+        
+        pred_logit = pred_logit[0].add(pred_logit[1])
+        #Devide all values by 2
+        pred_logit = pred_logit / 2.0
     classification_loss = torch.nn.functional.binary_cross_entropy_with_logits(
         pred_logit, gt)
     confidence_term = torch.mean(

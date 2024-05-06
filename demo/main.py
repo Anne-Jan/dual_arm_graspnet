@@ -141,6 +141,7 @@ def main(args):
         grasp_sampler_args.num_grasps_per_object = 1
         grasp_sampler_args.num_objects_per_batch = 1
         dataset = DataLoader(grasp_sampler_args)
+        
         for i, data in enumerate(dataset):
             generated_grasps, generated_scores = estimator.generate_and_refine_grasps(
                 data["pc"].squeeze())
@@ -150,6 +151,7 @@ def main(args):
                        grasp_scores=generated_scores)
             print('close the window to continue to next object . . .')
             mlab.show()
+            break
     else:
         for npy_file in glob.glob(os.path.join(args.npy_folder, '*.npy')):
             # Depending on your numpy version you may need to change allow_pickle
@@ -182,8 +184,8 @@ def main(args):
             generated_grasps, generated_scores = estimator.generate_and_refine_grasps(
                 object_pc)
             # Only show the first grasp
-            generated_grasps = generated_grasps[0:2]
-            generated_scores = generated_scores[0:2]
+            # generated_grasps = generated_grasps[0:2]
+            # generated_scores = generated_scores[0:2]
             print(np.array(generated_grasps).shape)
             mlab.figure(bgcolor=(1, 1, 1))
             draw_scene(

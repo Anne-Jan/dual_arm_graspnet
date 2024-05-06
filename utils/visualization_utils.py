@@ -17,7 +17,7 @@ def get_color_plasma(x):
 
 def plot_mesh(mesh):
     assert type(mesh) == trimesh.base.Trimesh
-    mlab.triangular_mesh(mesh.vertices[:, 0],
+    mlab.triangular_mesh(mesh.vertices[:, 0], 
                          mesh.vertices[:, 1],
                          mesh.vertices[:, 2],
                          mesh.faces,
@@ -61,7 +61,6 @@ def draw_scene(pc,
       plasma_coloring: If True, sets the plasma colormap for visualizting the 
         pc.
     """
-
     max_grasps = 100
     grasps = np.array(grasps)
 
@@ -205,8 +204,11 @@ def draw_scene(pc,
                 color=gripper_color,
                 opacity=1 if visualize_diverse_grasps else 0.5)
         else:
+            # print(grasp_pc.shape)
             pts = np.matmul(grasp_pc, g[:3, :3].T)
+            # print(pts.shape)
             pts += np.expand_dims(g[:3, 3], 0)
+            # print(pts.shape)
             if isinstance(gripper_color, list):
                 mlab.plot3d(pts[:, 0],
                             pts[:, 1],
@@ -240,3 +242,6 @@ def get_axis():
     axis_z = np.array([np.zeros(50), np.zeros(50), np.linspace(0, 0.10, 50)]).T
     axis = np.concatenate([axis_x, axis_y, axis_z], axis=0)
     return axis
+
+
+

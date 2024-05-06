@@ -37,18 +37,42 @@ class GraspEvaluatorData(BaseDataset):
             data = self.get_uniform_evaluator_data(path)
         else:
             data = self.get_nonuniform_evaluator_data(path)
-
         gt_control_points = utils.transform_control_points_numpy(
             data[1], self.opt.num_grasps_per_object, mode='rt')
 
+
+        
+        
+        # meta1 = data[8]
         meta = {}
+        # meta['pc'] = meta1['pc']
+        # meta['grasp_rt'] = meta1['grasp_rt']
+        # meta['labels'] = meta1['labels']
+        # meta['quality'] = meta1['quality']
+        # meta['pc_pose'] = meta1['pc_pose']
+        # meta['cad_path'] = meta1['cad_path']
+        # meta['cad_scale'] = meta1['cad_scale']
+        # meta['og_grasps'] = meta1['og_grasps']
+        
+
         meta['pc'] = data[0][:, :, :3]
-        meta['grasp_rt'] = gt_control_points[:, :, :3]
+        if len(gt_control_points.shape) == 4:
+            meta['grasp_rt'] = gt_control_points[:, :, :, :3]
+        else:
+            meta['grasp_rt'] = gt_control_points[:, :, :3]
         meta['labels'] = data[2]
         meta['quality'] = data[3]
         meta['pc_pose'] = data[4]
         meta['cad_path'] = data[5]
         meta['cad_scale'] = data[6]
+        # meta['og_grasps'] = data[7]
+        # meta['og_grasps'] = data[1][:9,:,:,:]
+        meta['og_grasps'] = data[1][9:,:,:,:]
+        # reshape to 64 x 4 x 4 from 32 x 1 x 2 x 4 x 4        
+        if len(meta['og_grasps'].shape) == 5:
+            print('reshaping')
+            meta['og_grasps'] = meta['og_grasps'].reshape(-1, 4, 4)
+
         return meta
 
     def __len__(self):
@@ -142,7 +166,6 @@ class GraspEvaluatorData(BaseDataset):
 
         self.collision_hard_neg_queue[path] = self.collision_hard_neg_queue[
             path][num_hard_negative:]
-
         # Adding flex neg
         if len(negative_clusters) != num_flex_negative:
             raise ValueError(
@@ -186,7 +209,7 @@ class GraspEvaluatorData(BaseDataset):
 
         pos_grasps, pos_qualities, neg_grasps, neg_qualities, obj_mesh, cad_path, cad_scale = self.read_grasp_file(
             path)
-
+       
         output_pcs = []
         output_grasps = []
         output_qualities = []
@@ -198,21 +221,25 @@ class GraspEvaluatorData(BaseDataset):
 
         num_positive = int(self.opt.num_grasps_per_object *
                            self.ratio_positive)
+        #only take the first 9 positive grasps
         positive_clusters = self.sample_grasp_indexes(num_positive, pos_grasps,
                                                       pos_qualities)
         num_negative = self.opt.num_grasps_per_object - num_positive
+
         negative_clusters = self.sample_grasp_indexes(num_negative, neg_grasps,
                                                       neg_qualities)
         hard_neg_candidates = []
+        positive_grasps = []
         # Fill in Positive Examples.
         for positive_cluster in positive_clusters:
             selected_grasp = pos_grasps[positive_cluster[0]][
                 positive_cluster[1]]
             selected_quality = pos_qualities[positive_cluster[0]][
                 positive_cluster[1]]
-            output_grasps.append(selected_grasp)
-            output_qualities.append(selected_quality)
+            output_grasps.append(np.copy(selected_grasp))
+            output_qualities.append(np.copy(selected_quality))
             output_labels.append(1)
+            positive_grasps.append(selected_grasp)
             hard_neg_candidates += utils.perturb_grasp(
                 selected_grasp,
                 self.collision_hard_neg_num_perturbations,
@@ -259,18 +286,19 @@ class GraspEvaluatorData(BaseDataset):
                         negative_cluster[1]]
                     self.collision_hard_neg_queue[path].put(
                         (selected_grasp, selected_quality))
-
-        # Use negative examples from queue.
+        negative_grasps = []
         for _ in range(num_negative):
             #print('qsize = ', self._collision_hard_neg_queue[file_path].qsize())
             grasp, quality = self.collision_hard_neg_queue[path].get()
             output_grasps.append(grasp)
             output_qualities.append(quality)
             output_labels.append(0)
-
+            negative_grasps.append(grasp)
+        # print( np.array(output_grasps).shape)
         for iter in range(self.opt.num_grasps_per_object):
             if iter > 0:
                 output_pcs.append(np.copy(output_pcs[0]))
+                # output_pc_poses.append(0)
                 output_pc_poses.append(np.copy(output_pc_poses[0]))
             else:
                 pc, camera_pose, _ = self.change_object_and_render(
@@ -280,15 +308,17 @@ class GraspEvaluatorData(BaseDataset):
                     if torch.utils.data.get_worker_info() else 0)
                 #self.change_object(cad_path, cad_scale)
                 #pc, camera_pose, _ = self.render_random_scene()
-
                 output_pcs.append(pc)
                 output_pc_poses.append(utils.inverse_transform(camera_pose))
-
-            output_grasps[iter] = camera_pose.dot(output_grasps[iter])
-
+            if len(np.array(output_grasps).shape) == 4:
+                output_grasps[iter][0] = camera_pose.dot(output_grasps[iter][0])
+                output_grasps[iter][1] = camera_pose.dot(output_grasps[iter][1])
+            else:
+                output_grasps[iter] = camera_pose.dot(output_grasps[iter])
         output_pcs = np.asarray(output_pcs, dtype=np.float32)
         output_grasps = np.asarray(output_grasps, dtype=np.float32)
         output_labels = np.asarray(output_labels, dtype=np.int32)
         output_qualities = np.asarray(output_qualities, dtype=np.float32)
         output_pc_poses = np.asarray(output_pc_poses, dtype=np.float32)
-        return output_pcs, output_grasps, output_labels, output_qualities, output_pc_poses, output_cad_paths, output_cad_scales
+        # print(np.array(positive_grasps).shape)
+        return output_pcs, output_grasps, output_labels, output_qualities, output_pc_poses, output_cad_paths, output_cad_scales, np.array(positive_grasps)#, meta#, np.array(positive_grasps)

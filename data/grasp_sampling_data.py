@@ -3,6 +3,7 @@ import torch
 from data.base_dataset import BaseDataset, NoPositiveGraspsException
 import numpy as np
 from utils import utils
+from utils.visualization_utils import *
 
 
 class GraspSamplingData(BaseDataset):
@@ -34,12 +35,14 @@ class GraspSamplingData(BaseDataset):
 
         #self.change_object(cad_path, cad_scale)
         #pc, camera_pose, _ = self.render_random_scene()
+
         pc, camera_pose, _ = self.change_object_and_render(
             cad_path,
             cad_scale,
             thread_id=torch.utils.data.get_worker_info().id
             if torch.utils.data.get_worker_info() else 0)
-
+        
+        
         output_qualities = []
         output_grasps = []
         # print(pos_qualities)
@@ -51,10 +54,10 @@ class GraspSamplingData(BaseDataset):
             selected_quality = pos_qualities[selected_grasp_index[0]][
                 selected_grasp_index[1]]
             output_qualities.append(selected_quality)
-            #Dot product with camera pose, differentiate between 1 and 2 grasps Probably not relevant for my training data
+            #Dot product with camera pose, differentiate between 1 and 2 grasps
             if len(selected_grasp.shape) == 3:
-                # selected_grasp[0] = camera_pose.dot(selected_grasp[0])
-                # selected_grasp[1] = camera_pose.dot(selected_grasp[1])
+                selected_grasp[0] = camera_pose.dot(selected_grasp[0])
+                selected_grasp[1] = camera_pose.dot(selected_grasp[1])
                 output_grasps.append(selected_grasp)
             else:
                 output_grasps.append(camera_pose.dot(selected_grasp))
@@ -62,15 +65,21 @@ class GraspSamplingData(BaseDataset):
             np.array(output_grasps), self.opt.num_grasps_per_object, mode='rt')
         
         meta['pc'] = np.array([pc] * self.opt.num_grasps_per_object)[:, :, :3]
+        # print(meta['pc'].shape)
 
         if len(np.array(output_grasps).shape) == 4:
+            #reshape pos grasp to (num_grasps, 2, 4, 4)
+            # pos_grasps = np.array(pos_grasps).reshape(
+            #     len(pos_grasps), 2, 4, 4)
             #Reshape it to (num_grasps, 2, 16)
+            meta['og_grasps'] = np.array(output_grasps)
             meta['grasp_rt'] = np.array(output_grasps).reshape(
                 len(output_grasps), -1)
             meta['target_cps'] = np.array(gt_control_points[:, :, :, :3])
             # meta['grasp_rt'] = np.array(output_grasps).reshape(
             #     len(output_grasps), 2, -1)
         else:
+            meta['og_grasps'] = np.array(output_grasps)
             meta['grasp_rt'] = np.array(output_grasps).reshape(
                 len(output_grasps), -1)
             meta['target_cps'] = np.array(gt_control_points[:, :, :3])

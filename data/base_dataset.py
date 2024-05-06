@@ -4,8 +4,11 @@ import pickle
 import os
 import copy
 import json
+import torch
 from utils.sample import Object
 from utils import utils
+from utils.visualization_utils import *
+
 import glob
 from renderer.online_object_renderer import OnlineObjectRenderer
 import threading
@@ -124,7 +127,6 @@ class BaseDataset(data.Dataset):
             pos_grasps, pos_qualities, neg_grasps, neg_qualities, cad, cad_path, cad_scale = copy.deepcopy(
                 self.cache[file_name])
             return pos_grasps, pos_qualities, neg_grasps, neg_qualities, cad, cad_path, cad_scale
-
         pos_grasps, pos_qualities, neg_grasps, neg_qualities, cad, cad_path, cad_scale = self.read_object_grasp_data(
             path,
             ratio_of_grasps_to_be_used=self.opt.grasps_ratio,
@@ -134,7 +136,6 @@ class BaseDataset(data.Dataset):
             self.cache[file_name] = (pos_grasps, pos_qualities, neg_grasps,
                                      neg_qualities, cad, cad_path, cad_scale)
             return copy.deepcopy(self.cache[file_name])
-
         return pos_grasps, pos_qualities, neg_grasps, neg_qualities, cad, cad_path, cad_scale
 
     def read_object_grasp_data(self,
@@ -162,31 +163,60 @@ class BaseDataset(data.Dataset):
         object_model.vertices -= object_mean
         grasps = np.asarray(json_dict['transforms'])
         if len(grasps.shape) == 4:
+            #shift all grasps slightly along the z-axis
+            # grasps[:, :, :3, 3] += np.array([0, 0, 0.05])
+
+            # grasps[:, :, :3, 3] -= object_mean
+            scale = 0.15
+            json_dict['object_scale'] = json_dict['object_scale'] * scale
+            # scale = 1.1 * scale
+            S = np.diag([scale, scale, scale, 1])
+            for i in range(len(grasps)):
+                
+                grasps[i][0] = S.dot(grasps[i][0])
+                grasps[i][1] = S.dot(grasps[i][1])
+                #Also flip the y-axis with the z-axis and the z-axis with the y-axis
+                # grasps[i][0] = np.array([[1, 0, 0, 0], [0, 0, 1, 0], [0, -1, 0, 0], [0, 0, 0, 1]]).dot(grasps[i][0])
+                # grasps[i][1] = np.array([[1, 0, 0, 0], [0, 0, 1, 0], [0, -1, 0, 0], [0, 0, 0, 1]]).dot(grasps[i][1])
+
+
+            
+        
             #Set return all grasps to true
+            try:
+                metric_scores = np.asarray(json_dict['metric'])
+            except KeyError:
+                metric_scores = np.ones(grasps.shape[0])
             return_all_grasps = False
         else:
             grasps[:, :3, 3] -= object_mean
-        try:
-            flex_qualities = np.asarray(json_dict[quality])
-        except KeyError:
-            flex_qualities = np.ones(grasps.shape)
-        try:
-            heuristic_qualities = np.asarray(
-                json_dict['quality_number_of_contacts'])
-        except KeyError:
-            heuristic_qualities = np.ones(flex_qualities.shape)
+            try:
+                flex_qualities = np.asarray(json_dict[quality])
+            except KeyError:
+                flex_qualities = np.ones(grasps.shape)
+            try:
+                heuristic_qualities = np.asarray(
+                    json_dict['quality_number_of_contacts'])
+            except KeyError:
+                heuristic_qualities = np.ones(flex_qualities.shape)
         # print(flex_qualities.shape, heuristic_qualities.shape)
-        successful_mask = np.logical_and(flex_qualities > 0.01,
-                                         heuristic_qualities > 0.01) 
-        positive_grasp_indexes = np.where(successful_mask)[0]
-        negative_grasp_indexes = np.where(~successful_mask)[0]
-        positive_grasp_indexes = np.unique(positive_grasp_indexes)
+        if len(grasps.shape) == 4:
+            successful_mask = np.where(metric_scores >= 2.4)
+            negative_mask = np.where(metric_scores < 2.4)
+            positive_grasp_indexes = successful_mask[0]
+            negative_grasp_indexes = negative_mask[0]
+        else:
+            successful_mask = np.logical_and(flex_qualities > 0.01,
+                                            heuristic_qualities > 0.01) 
+            positive_grasp_indexes = np.where(successful_mask)[0]
+            negative_grasp_indexes = np.where(~successful_mask)[0]
+        # positive_grasp_indexes = np.unique(positive_grasp_indexes)
         # print(len(positive_grasp_indexes))
         if len(grasps.shape) == 4:
-            positive_grasps = grasps[positive_grasp_indexes, :, :]
-            negative_grasps = grasps[negative_grasp_indexes, :, :]
-            positive_qualities = heuristic_qualities[positive_grasp_indexes]
-            negative_qualities = heuristic_qualities[negative_grasp_indexes]
+            positive_grasps = grasps[positive_grasp_indexes, :, :, :]
+            negative_grasps = grasps[negative_grasp_indexes, :, :, :]
+            positive_qualities = metric_scores[positive_grasp_indexes]
+            negative_qualities = metric_scores[negative_grasp_indexes]
         else:
             positive_grasps = grasps[positive_grasp_indexes, :, :]
             negative_grasps = grasps[negative_grasp_indexes, :, :]
@@ -197,9 +227,9 @@ class BaseDataset(data.Dataset):
             cluster_indexes = np.asarray(
                 utils.farthest_points(grasps, num_clusters,
                                       utils.distance_by_translation_grasp))
-            # print(cluster_indexes)
             output_grasps = []
             output_qualities = []
+            #TODO fix this function properly instead of skipping over it.
 
             for i in range(num_clusters):
                 indexes = np.where(cluster_indexes == i)[0]
@@ -212,8 +242,10 @@ class BaseDataset(data.Dataset):
                     indexes = np.random.choice(indexes,
                                                size=num_grasps_to_choose,
                                                replace=False)
-
-                output_grasps.append(grasps[indexes, :, :])
+                if(len(grasps.shape) == 4):
+                    output_grasps.append(grasps[indexes, :, :, :])
+                else:
+                    output_grasps.append(grasps[indexes, :, :])
                 output_qualities.append(qualities[indexes])
 
             output_grasps = np.asarray(output_grasps)
@@ -221,7 +253,6 @@ class BaseDataset(data.Dataset):
 
             return output_grasps, output_qualities
         if not return_all_grasps:
-            # print("here")
             # print(positive_grasps.shape, positive_qualities.shape)
             positive_grasps, positive_qualities = cluster_grasps(
                 positive_grasps, positive_qualities)
@@ -232,7 +263,6 @@ class BaseDataset(data.Dataset):
         else:            
             num_positive_grasps = positive_grasps.shape[0]
             num_negative_grasps = negative_grasps.shape[0]
-        old_positive_grasps = positive_grasps
         # positive_grasps = [32,]
         # for idx in range(31):
         #     positive_grasps.append(old_positive_grasps)
@@ -241,6 +271,13 @@ class BaseDataset(data.Dataset):
         # print(len(grasps), len(positive_qualities))
         # print(len(positive_grasps[0]), len(positive_qualities))
         # print(positive_grasps[0].shape, positive_qualities.shape)
+        # count = 0
+        # for idx in range(len(positive_grasps)):
+        #     count += len(positive_grasps[idx])
+        # # print(count)
+        # positive_grasps = grasps[positive_grasp_indexes, :, :, :]
+        # #change from 32 x 2 x 4 x 4 to 32 x 1 x 2 x 4 x 4
+        # positive_grasps = positive_grasps[:, np.newaxis, :, :, :]
         return positive_grasps, positive_qualities, negative_grasps, negative_qualities, object_model, os.path.join(
             root_folder, json_dict['object']), json_dict['object_scale']
 
