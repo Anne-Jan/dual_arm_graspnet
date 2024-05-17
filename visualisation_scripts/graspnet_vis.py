@@ -16,6 +16,7 @@ import trimesh.scene
 from utils.sample import Object
 from renderer.online_object_renderer import OnlineObjectRenderer
 from utils import utils
+import trimesh.transformations as tra
 
 
 
@@ -101,10 +102,15 @@ if __name__ == '__main__':
         else:
             scale = 0.15
             json_dict['object_scale'] = json_dict['object_scale'] * scale
+            scale= scale * 1.1
             S = np.diag([scale, scale, scale, 1])
             for i in range(len(grasps)):
-                grasps[i][0] = switch_yz_axes(grasps[i][0])
-                grasps[i][1] = switch_yz_axes(grasps[i][1])
+                # grasps[i][0] = switch_yz_axes(grasps[i][0])
+                # grasps[i][1] = switch_yz_axes(grasps[i][1])
+                #rotate each grasp by 90 degrees about the x axis
+                # grasps[i][0] = tra.rotation_matrix(-np.pi/2, [1, 0, 0]).dot(grasps[i][0])
+                # grasps[i][1] = tra.rotation_matrix(-np.pi/2, [1, 0, 0]).dot(grasps[i][1])
+
 
                 
                 grasps[i][0] = S.dot(grasps[i][0])
@@ -133,47 +139,56 @@ if __name__ == '__main__':
         pc = pc[:, :3]
         # visualize the scene with mayavi
         mlab.figure(bgcolor=(1, 1, 1))
-        draw_scene(
-                pc,
-                grasps=grasps,
-            )
-        # grasp_pc = np.squeeze(utils.get_control_point_tensor(1, False), 0)
-        # grasp_pc[2, 2] = 0.059
-        # grasp_pc[3, 2] = 0.059
-        # mid_point = 0.5 * (grasp_pc[2, :] + grasp_pc[3, :])
+        # draw_scene(
+        #         pc,
+        #         grasps=grasps,
+        #     )
+        # mlab.show()
+        # break
+        grasp_pc = np.squeeze(utils.get_control_point_tensor(1, False), 0)
+        grasp_pc[2, 2] = 0.059
+        grasp_pc[3, 2] = 0.059
+        mid_point = 0.5 * (grasp_pc[2, :] + grasp_pc[3, :])
 
-        # modified_grasp_pc = []
-        # modified_grasp_pc.append(np.zeros((3, ), np.float32))
-        # modified_grasp_pc.append(mid_point)
-        # modified_grasp_pc.append(grasp_pc[2])
-        # modified_grasp_pc.append(grasp_pc[4])
-        # modified_grasp_pc.append(grasp_pc[2])
-        # modified_grasp_pc.append(grasp_pc[3])
-        # modified_grasp_pc.append(grasp_pc[5])
+        modified_grasp_pc = []
+        modified_grasp_pc.append(np.zeros((3, ), np.float32))
+        modified_grasp_pc.append(mid_point)
+        modified_grasp_pc.append(grasp_pc[2])
+        modified_grasp_pc.append(grasp_pc[4])
+        modified_grasp_pc.append(grasp_pc[2])
+        modified_grasp_pc.append(grasp_pc[3])
+        modified_grasp_pc.append(grasp_pc[5])
 
-        # grasp_pc = np.asarray(modified_grasp_pc)
-        # g = grasps[0]
-        # #set the rotation of the g to zero
+        grasp_pc = np.asarray(modified_grasp_pc)
+        #rotate the grasp pc by 90 degrees about the x axis
+        
+        g = grasps[0]
+        #set every point to the origin
+        pts = np.copy(grasp_pc)
+        pts -= np.expand_dims(g[:3, 3], 0)
+
+
+
        
         # pts = np.matmul(grasp_pc, g[:3, :3].T)
         # pts += np.expand_dims(g[:3, 3], 0)
-        # # pts = grasp_pc
-        # gripper_color = (0.0, 1.0, 0.0)
-        # if isinstance(gripper_color, list):
-        #     mlab.plot3d(pts[:, 0],
-        #                 pts[:, 1],
-        #                 pts[:, 2],
-        #                 color=gripper_color[i],
-        #                 tube_radius=0.003,
-        #                 opacity=1)
-        # else:
-        #     tube_radius = 0.001
-        #     mlab.plot3d(pts[:, 0],
-        #                 pts[:, 1],
-        #                 pts[:, 2],
-        #                 color=gripper_color,
-        #                 tube_radius=tube_radius,
-        #                 opacity=1)
+        # pts = grasp_pc
+        gripper_color = (0.0, 1.0, 0.0)
+        if isinstance(gripper_color, list):
+            mlab.plot3d(pts[:, 0],
+                        pts[:, 1],
+                        pts[:, 2],
+                        color=gripper_color[i],
+                        tube_radius=0.003,
+                        opacity=1)
+        else:
+            tube_radius = 0.001
+            mlab.plot3d(pts[:, 0],
+                        pts[:, 1],
+                        pts[:, 2],
+                        color=gripper_color,
+                        tube_radius=tube_radius,
+                        opacity=1)
             
         mlab.show()
-        # break
+        break
