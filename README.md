@@ -1,3 +1,4 @@
+
 # 6-DoF GraspNet: Variational Grasp Generation for Object Manipulation
 
 This is a PyTorch implementation of [6-DoF
@@ -43,9 +44,6 @@ This repository also includes an improved grasp sampling network which was
 proposed here <https://github.com/NVlabs/6dof-graspnet>. The new grasp sampling
 network is trained with [Implicit Maximum Likelihood Estimation](https://arxiv.org/pdf/2004.03590.pdf).
 
-### Update 9th June 2020
-
-I have now uploaded new models that are trained for longer and until the test loss flattened. The new models can be downloaded in the same way as detailed in step 7 above.
 
 ## Demo
 
@@ -84,14 +82,6 @@ The dataset can be downloaded from [here](https://drive.google.com/open?id=1GkFr
 2) `meshes` folder: has the folder for all the meshes used. Except `cylinder` and `box` the rest of the folders are empty and need to be populated by the downloaded meshes from shapenet.
 3) `splits` folder: contains the train/test split for each of the categories.
 
-# Dataset DA2
-
-Similar structure, [here](https://drive.google.com/file/d/1Gb247xnwxbiy2psliTbu5DjMAi7pbBzn/view?usp=sharing).:
-1) `grasps` folder: contains all the grasps pairs for each object.
-2) `meshes` folder: has the folder for all the meshes used, not organized by object type like with the shapenet data
-3) `splits` folder: contains the train/test split for each of the categories.
-
-These three folders should be present under `shapenet_models/da2_dataset_small/`
 
 ## Training
 
@@ -112,7 +102,16 @@ GAN Training Example Command:
 python3 train.py  --help
 ```
 
-# Training Dual grasp
+# Dataset DA2
+
+Similar structure, can be downloaded from [here](https://drive.google.com/file/d/1Gb247xnwxbiy2psliTbu5DjMAi7pbBzn/view?usp=sharing).:
+1) `grasps` folder: contains all the grasps pairs for each object.
+2) `meshes` folder: has the folder for all the meshes used, not organized by object type like with the shapenet data
+3) `splits` folder: contains the train/test split for each of the categories.
+
+These three folders should be present under `shapenet_models/da2_dataset_small/`
+
+## Training Dual grasp
 
 To train the grasp sampler (vae) with a configuration that works on a gpu with 8GB vram run:
 
@@ -126,7 +125,7 @@ To look at the performance after training run"
 python -m demo.main --grasp_sampler_folder checkpoints/vae_lr_0002_bs_32_scale_1_npoints_128_radius_02_latent_size_2/ --refinement_method gradient --dual_grasp
 ```
 
-# DA2 Dataset Issue
+## DA2 Dataset Issue
 
 When converting the meshes to pointcloud the resulting pointcloud is shifted. The creation of the pointcloud occurs in `renderer/online_object_renderer.py`. Specifically in the `to_pointcloud()` function on line `96`.
 In `models/grasp_net.py` on lines `62-79` the resulting pointclouds and it grasps are visualized. Commenting these lines shoud result in the training script running normally.
