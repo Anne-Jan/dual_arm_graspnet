@@ -47,7 +47,7 @@ def farthest_points(data,
                                                         dtype=np.int32)
 
         return np.arange(data.shape[0], dtype=np.int32)
-
+    # print(nclusters, data.shape[0])
     clusters = np.ones((data.shape[0], ), dtype=np.int32) * -1
     distances = np.ones((data.shape[0], ), dtype=np.float32) * 1e7
     centers = []
@@ -126,6 +126,13 @@ def perturb_grasp(grasp, num, min_translation, max_translation, min_rotation,
     """
       Self explanatory.
     """
+    # num = 1
+    #set min and max translation to 0
+    # min_translation = [0, 0, 0]
+    # max_translation = [0, 0, 0]
+    #set min and max rotation to 1
+    # min_rotation = [-1, -1, -1]
+    # max_rotation = [1, 1, 1]
     output_grasps = []
     for _ in range(num):
         sampled_translation = [
@@ -140,8 +147,8 @@ def perturb_grasp(grasp, num, min_translation, max_translation, min_rotation,
         grasp_transformation = tra.euler_matrix(*sampled_rotation)
         if len(grasp.shape) == 3:
             grasp_transformation[:3, 3] = sampled_translation
-            grasp[0] = np.matmul(grasp[0], grasp_transformation)
-            grasp[1] = np.matmul(grasp[1], grasp_transformation)
+            grasp[0] = np.matmul(np.copy(grasp[0]), grasp_transformation)
+            grasp[1] = np.matmul(np.copy(grasp[1]), grasp_transformation)
             output_grasps.append(grasp)
         else:
             grasp_transformation[:3, 3] = sampled_translation
@@ -374,7 +381,7 @@ def transform_control_points(gt_grasps, batch_size, mode='qt', device="cpu", dua
 
             gt_grasps = torch.unsqueeze(input_gt_grasps,
                                         1).repeat(1, num_control_points, 1)
-            print("shape", gt_grasps.shape)
+            # print("shape", gt_grasps.shape)
             gt_q = gt_grasps[:, :, :4]
             gt_t = gt_grasps[:, :, 4:]
             gt_control_points = qrot(gt_q, control_points)

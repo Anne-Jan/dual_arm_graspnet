@@ -61,6 +61,7 @@ class OnlineObjectRenderer:
 
         tmesh = obj.mesh
         tmesh_mean = np.mean(tmesh.vertices, 0)
+        # print('tmesh_mean:', tmesh_mean)
         tmesh.vertices -= np.expand_dims(tmesh_mean, 0)
 
         lbs = np.min(tmesh.vertices, 0)
@@ -68,6 +69,7 @@ class OnlineObjectRenderer:
         object_distance = np.max(ubs - lbs) * 5
 
         mesh = pyrender.Mesh.from_trimesh(tmesh)
+        
 
         context = {
             'tmesh': copy.deepcopy(tmesh),
@@ -90,8 +92,23 @@ class OnlineObjectRenderer:
 
     def current_context(self):
         return self._current_context
-
+    
     def _to_pointcloud(self, depth):
+        # height, width = depth.shape
+        # pointcloud = []
+        # cx = width / 2.0
+        # cy = height / 2.0
+
+        # for v in range(height):
+        #     for u in range(width):
+        #         z = depth[v, u]
+        #         if z == 0:
+        #             continue  # Skip invalid depth values
+        #         x = (u - cx) * z / self._fx
+        #         y = (v - cy) * z / self._fy
+        #         pointcloud.append([x, y, z])
+        # print(np.array(pointcloud).shape)
+        # return np.array(pointcloud)
         height = depth.shape[0]
         width = depth.shape[1]
 
@@ -100,9 +117,18 @@ class OnlineObjectRenderer:
         x = mask[1]
         y = mask[0]
 
+        
+        #normalize based on the min and max values of x and y
+        # normalized_x = (x.astype(np.float32) - np.min(x)) / (np.max(x) - np.min(x))
+        # normalized_y = (y.astype(np.float32) - np.min(y)) / (np.max(y) - np.min(y))
         normalized_x = (x.astype(np.float32) - width * 0.5) / width
         normalized_y = (y.astype(np.float32) - height * 0.5) / height
-
+        #normalize based on the min and max values of x and y
+        normalized_x = (normalized_x.astype(np.float32) - np.min(normalized_x)) / (np.max(normalized_x) - np.min(normalized_x))
+        normalized_y = (normalized_y.astype(np.float32) - np.min(normalized_y)) / (np.max(normalized_y) - np.min(normalized_y))
+        # normalized_x = x
+        # normalized_y = y
+        # print(normalized_x)
         world_x = self._fx * normalized_x * depth[y, x]
         world_y = self._fy * normalized_y * depth[y, x]
         world_z = depth[y, x]
@@ -117,6 +143,7 @@ class OnlineObjectRenderer:
         return color, depth, pc, transferred_pose
 
     def render(self, pose, render_pc=True):
+        # pyrender.Viewer(self._scene, use_raymond_lighting=True)
         if self.renderer is None:
             self.renderer = pyrender.OffscreenRenderer(400, 400)
         if self._current_context is None:
@@ -126,6 +153,7 @@ class OnlineObjectRenderer:
         self._scene.set_pose(self._current_context['node'], transferred_pose)
 
         color, depth = self.renderer.render(self._scene)
+        #showscene
 
         if render_pc:
             pc = self._to_pointcloud(depth)

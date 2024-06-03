@@ -55,17 +55,28 @@ class GraspNetModel:
         input_pcs = torch.from_numpy(data['pc']).contiguous()
         input_grasps = torch.from_numpy(data['grasp_rt']).float()
         self.og_grasps = data['og_grasps']
-        self.pc = data['pc']
+        self.og_grasps = data['og_grasps'][:9,:,:,:]
         #reshape from 32 x 2 x 4 x 4 to 64 x 4 x 4
         if len(self.og_grasps.shape) == 4:
             self.og_grasps = self.og_grasps.reshape(-1, 4, 4)
-        # mlab.figure(bgcolor=(1, 1, 1))
+        mlab.figure(bgcolor=(1, 1, 1))
+        draw_scene(
+                input_pcs[0].cpu().detach().numpy(),
+                grasps=self.og_grasps,
+            )
+        mlab.show()
+        #Cear the scene
+        # mlab.clf()
+        # self.og_grasps = data['og_grasps'][9:,:,:,:]
+        # if len(self.og_grasps.shape) == 4:
+        #     self.og_grasps = self.og_grasps.reshape(-1, 4, 4)
+        # # mlab.figure(bgcolor=(1, 1, 1))
         # draw_scene(
-        #         og_pc,
-        #         # grasps=og_grasps,
+        #         input_pcs[0].cpu().detach().numpy(),
+        #         grasps=self.og_grasps,
         #     )
         # mlab.show()
-        # print(xd)
+        print(xd)
         if self.opt.arch == "evaluator":
             targets = torch.from_numpy(data['labels']).float()
         else:

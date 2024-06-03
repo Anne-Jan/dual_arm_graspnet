@@ -11,14 +11,14 @@ The source code is released under [MIT License](LICENSE) and the trained weights
 ## Installation
 
 This code has been tested with python 3.6, PyTorch 1.4 and CUDA 10.0 on Ubuntu
-18.04. To install do
+18.04. (I personally use 3.8.19, pytorch 1.13 and CUDA 11.7) To install do
 
-1) `pip3 install torch==1.4.0+cu100 torchvision==0.5.0+cu100 -f <https://download.pytorch.org/whl/torch_stable.html>`
+1) `pip3 install torch==1.13.0+cu117 torchvision==0.14.0+cu117 -f <https://download.pytorch.org/whl/torch_stable.html>`
 
 2) Clone this repository: `git clone
    git@github.com:jsll/pytorch_6dof-graspnet.git`.
 
-3) Clone pointnet++: `git@github.com:erikwijmans/Pointnet2_PyTorch.git`.
+3) Clone pointnet++: `https://github.com/erikwijmans/Pointnet2_PyTorch`.
 
 4) Run `cd Pointnet2_PyTorch && pip3 install -r requirements.txt`
 
@@ -86,12 +86,12 @@ The dataset can be downloaded from [here](https://drive.google.com/open?id=1GkFr
 
 # Dataset DA2
 
-Similar structure:
+Similar structure, [here](https://drive.google.com/file/d/1Gb247xnwxbiy2psliTbu5DjMAi7pbBzn/view?usp=sharing).:
 1) `grasps` folder: contains all the grasps pairs for each object.
 2) `meshes` folder: has the folder for all the meshes used, not organized by object type like with the shapenet data
 3) `splits` folder: contains the train/test split for each of the categories.
 
-These three folders should be present under `shapenet_models/da2_dataset/`
+These three folders should be present under `shapenet_models/da2_dataset_small/`
 
 ## Training
 
@@ -125,33 +125,11 @@ To look at the performance after training run"
 ```shell
 python -m demo.main --grasp_sampler_folder checkpoints/vae_lr_0002_bs_32_scale_1_npoints_128_radius_02_latent_size_2/ --refinement_method gradient --dual_grasp
 ```
-## Quantitative Evaluation
 
-I have not converted the code for doing quantitative evaluation
-<https://github.com/NVlabs/6dof-graspnet/blob/master/eval.py> to PyTorch. I
-would appreciate it if someone could convert it and send in a pull request.
+# DA2 Dataset Issue
 
-## Citation
+When converting the meshes to pointcloud the resulting pointcloud is shifted. The creation of the pointcloud occurs in `renderer/online_object_renderer.py`. Specifically in the `to_pointcloud()` function on line `96`.
+In `models/grasp_net.py` on lines `62-79` the resulting pointclouds and it grasps are visualized. Commenting these lines shoud result in the training script running normally.
 
-If you find this work useful in your research, please consider citing the
-original authors' work:
 
-```
-inproceedings{mousavian2019graspnet,
-  title={6-DOF GraspNet: Variational Grasp Generation for Object Manipulation},
-  author={Arsalan Mousavian and Clemens Eppner and Dieter Fox},
-  booktitle={International Conference on Computer Vision (ICCV)},
-  year={2019}
-}
-```
 
-as well as my implementation
-
-```
-@article{pytorch_6dof-graspnet,
-      Author = {Jens Lundell},
-      Title = {6-DOF GraspNet Pytorch},
-      Journal = {<https://github.com/jsll/pytorch_6dof-graspnet},>
-      Year = {2020}
-}
-```

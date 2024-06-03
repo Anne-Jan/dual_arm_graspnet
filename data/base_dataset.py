@@ -12,7 +12,7 @@ from utils.visualization_utils import *
 import glob
 from renderer.online_object_renderer import OnlineObjectRenderer
 import threading
-
+import trimesh.transformations as tra
 
 class NoPositiveGraspsException(Exception):
     """raised when there's no positive grasps for an object."""
@@ -149,7 +149,6 @@ class BaseDataset(data.Dataset):
         """
         num_clusters = self.opt.num_grasp_clusters
         root_folder = self.opt.dataset_root_folder
-
         if num_clusters <= 0:
             raise NoPositiveGraspsException
         # print(json_path)
@@ -167,17 +166,55 @@ class BaseDataset(data.Dataset):
             # grasps[:, :, :3, 3] += np.array([0, 0, 0.05])
 
             # grasps[:, :, :3, 3] -= object_mean
-            scale = 0.15
+            scale = 0.2
             json_dict['object_scale'] = json_dict['object_scale'] * scale
-            # scale = 1.1 * scale
+            # scale = 1.25 * scale
             S = np.diag([scale, scale, scale, 1])
             for i in range(len(grasps)):
+                R = tra.rotation_matrix(np.pi/2, [1, 0, 0])
+                #rotate the grasp pc by 90 degrees about the x axis
+                grasps[i][0][:3, :3] = np.matmul(grasps[i][0][:3, :3], R[:3, :3].T)
+                grasps[i][1][:3, :3] = np.matmul(grasps[i][1][:3, :3], R[:3, :3].T)
+                
                 
                 grasps[i][0] = S.dot(grasps[i][0])
                 grasps[i][1] = S.dot(grasps[i][1])
-                #Also flip the y-axis with the z-axis and the z-axis with the y-axis
-                # grasps[i][0] = np.array([[1, 0, 0, 0], [0, 0, 1, 0], [0, -1, 0, 0], [0, 0, 0, 1]]).dot(grasps[i][0])
-                # grasps[i][1] = np.array([[1, 0, 0, 0], [0, 0, 1, 0], [0, -1, 0, 0], [0, 0, 0, 1]]).dot(grasps[i][1])
+
+                def compute_center_point(grasp_matrix):
+                    # Calculate the mean of the first three columns (x, y, z coordinates)
+                    center_x = np.mean(grasp_matrix[:, 0])
+                    center_y = np.mean(grasp_matrix[:, 1])
+                    center_z = np.mean(grasp_matrix[:, 2])
+                    return center_x, center_y, center_z
+
+                def scale_and_translate_gripper(grasp_matrix, center_point, scaling_factor, translation_vector):
+                    # Extract the center coordinates
+                    C_x, C_y, C_z = center_point
+                    
+                    # Create a new matrix for the scaled and translated coordinates
+                    scaled_translated_matrix = np.copy(grasp_matrix)
+                    
+                    # Apply the scaling transformation to the first three columns (x, y, z coordinates)
+                    for i in range(grasp_matrix.shape[0]):
+                        x, y, z = grasp_matrix[i, 0], grasp_matrix[i, 1], grasp_matrix[i, 2]
+                        x_prime = C_x + scaling_factor * (x - C_x)
+                        y_prime = C_y + scaling_factor * (y - C_y)
+                        z_prime = C_z + scaling_factor * (z - C_z)
+                        # Apply translation
+                        x_prime += translation_vector[0]
+                        y_prime += translation_vector[1]
+                        z_prime += translation_vector[2]
+                        scaled_translated_matrix[i, 0] = x_prime
+                        scaled_translated_matrix[i, 1] = y_prime
+                        scaled_translated_matrix[i, 2] = z_prime
+                    
+                    return scaled_translated_matrix
+                scale_factor = 1.5
+                translation_vector = [0, 0, 0]
+                # Example grasp matrix (4x4 matrix)
+                # grasps[i][0] = scale_and_translate_gripper(grasps[i][0], compute_center_point(grasps[i][0]), scale_factor, translation_vector)    
+                # grasps[i][1] = scale_and_translate_gripper(grasps[i][1], compute_center_point(grasps[i][1]), scale_factor, translation_vector) 
+
 
 
             
@@ -229,7 +266,6 @@ class BaseDataset(data.Dataset):
                                       utils.distance_by_translation_grasp))
             output_grasps = []
             output_qualities = []
-            #TODO fix this function properly instead of skipping over it.
 
             for i in range(num_clusters):
                 indexes = np.where(cluster_indexes == i)[0]
@@ -253,7 +289,6 @@ class BaseDataset(data.Dataset):
 
             return output_grasps, output_qualities
         if not return_all_grasps:
-            # print(positive_grasps.shape, positive_qualities.shape)
             positive_grasps, positive_qualities = cluster_grasps(
                 positive_grasps, positive_qualities)
             negative_grasps, negative_qualities = cluster_grasps(
@@ -263,21 +298,6 @@ class BaseDataset(data.Dataset):
         else:            
             num_positive_grasps = positive_grasps.shape[0]
             num_negative_grasps = negative_grasps.shape[0]
-        # positive_grasps = [32,]
-        # for idx in range(31):
-        #     positive_grasps.append(old_positive_grasps)
-        # positive_grasps = np.array(positive_grasps)
-        # print(positive_grasps[0].shape)
-        # print(len(grasps), len(positive_qualities))
-        # print(len(positive_grasps[0]), len(positive_qualities))
-        # print(positive_grasps[0].shape, positive_qualities.shape)
-        # count = 0
-        # for idx in range(len(positive_grasps)):
-        #     count += len(positive_grasps[idx])
-        # # print(count)
-        # positive_grasps = grasps[positive_grasp_indexes, :, :, :]
-        # #change from 32 x 2 x 4 x 4 to 32 x 1 x 2 x 4 x 4
-        # positive_grasps = positive_grasps[:, np.newaxis, :, :, :]
         return positive_grasps, positive_qualities, negative_grasps, negative_qualities, object_model, os.path.join(
             root_folder, json_dict['object']), json_dict['object_scale']
 

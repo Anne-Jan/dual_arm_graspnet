@@ -9,6 +9,7 @@ from utils import sample
 import torch
 import yaml
 from easydict import EasyDict as edict
+import scipy
 
 GRIPPER_PC = np.load('gripper_models/panda_pc.npy',
                      allow_pickle=True).item()['points']
@@ -312,16 +313,17 @@ def get_control_point_tensor(batch_size, use_torch=True, device="cpu", dual_gras
         return torch.tensor(control_points).to(device)
     
     #Rotate it 90 degrees around the x axis
-    control_points = np.matmul(control_points, tra.rotation_matrix(-np.pi/2, [1, 0, 1])[:3, :3].T)
+    # control_points = np.matmul(control_points, tra.rotation_matrix(-np.pi/2, [1, 0, 1])[:3, :3].T)
     #Rotate it by 45 degrees around the x axis
     # control_points = np.matmul(control_points, tra.rotation_matrix(-np.pi / 3, [1, 0, 0])[:3, :3].T)
-    # rotation_matrix = np.array([
-    # [1, 0, 0],
-    # [0, 0, 1],
-    # [0, 1, 0]
-    # ])
+    
+    
     # # Reshape the array to apply the rotation to each (x, y, z) coordinate
-    # reshaped_points = control_points.reshape(-1, 3)
+    reshaped_points = control_points.reshape(-1, 3)
+    # print('original control points', control_points)
+    
+    control_points = reshaped_points.reshape(1, 6, 3)
+    # print('rotated control points', control_points)
     # # print(reshaped_points.shape)
 
     # # # Apply the rotation to each point

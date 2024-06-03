@@ -25,6 +25,7 @@ class GraspEvaluatorData(BaseDataset):
         opt.input_nc = self.ninput_channels
         self.ratio_positive = self.set_ratios(ratio_positive)
         self.ratio_hardnegative = self.set_ratios(ratio_hardnegative)
+        self.ratio_hardnegative = 1
 
     def set_ratios(self, ratio):
         if int(self.opt.num_grasps_per_object * ratio) == 0:
@@ -66,8 +67,11 @@ class GraspEvaluatorData(BaseDataset):
         meta['cad_path'] = data[5]
         meta['cad_scale'] = data[6]
         # meta['og_grasps'] = data[7]
+        #First ones that are good
         # meta['og_grasps'] = data[1][:9,:,:,:]
-        meta['og_grasps'] = data[1][9:,:,:,:]
+        #Later ones that are bad, sometimes very bad
+        # meta['og_grasps'] = data[1][9:,:,:,:]
+        meta['og_grasps'] = data[1]
         # reshape to 64 x 4 x 4 from 32 x 1 x 2 x 4 x 4        
         if len(meta['og_grasps'].shape) == 5:
             print('reshaping')
@@ -206,6 +210,7 @@ class GraspEvaluatorData(BaseDataset):
         return output_pcs, output_grasps, output_labels, output_qualities, output_pc_poses, output_cad_paths, output_cad_scales
 
     def get_nonuniform_evaluator_data(self, path, verify_grasps=False):
+        # print(self.ratio_hardnegative,self.collision_hard_neg_max_translation, self.collision_hard_neg_min_translation, self.collision_hard_neg_max_rotation, self.collision_hard_neg_min_rotation, self.collision_hard_neg_num_perturbations)
 
         pos_grasps, pos_qualities, neg_grasps, neg_qualities, obj_mesh, cad_path, cad_scale = self.read_grasp_file(
             path)
