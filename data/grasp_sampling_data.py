@@ -41,7 +41,7 @@ class GraspSamplingData(BaseDataset):
         #     cad_scale,
         #     thread_id=torch.utils.data.get_worker_info().id
         #     if torch.utils.data.get_worker_info() else 0)
-        pc, camera_pose= self.transform_to_pc_and_rotate(cad_path, cad_scale)
+        pc, camera_pose = self.transform_to_pc_and_rotate(cad_path, cad_scale)
         
         output_qualities = []
         output_grasps = []
