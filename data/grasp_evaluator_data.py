@@ -25,7 +25,9 @@ class GraspEvaluatorData(BaseDataset):
         opt.input_nc = self.ninput_channels
         self.ratio_positive = self.set_ratios(ratio_positive)
         self.ratio_hardnegative = self.set_ratios(ratio_hardnegative)
-        self.ratio_hardnegative = 1
+        # print('ratio_positive', self.ratio_positive, 'ratio_hardnegative', self.ratio_hardnegative)
+        self.ratio_hardnegative = 1.0
+        # self.collision_hard_neg_num_perturbations = 5
 
     def set_ratios(self, ratio):
         if int(self.opt.num_grasps_per_object * ratio) == 0:
@@ -67,10 +69,11 @@ class GraspEvaluatorData(BaseDataset):
         meta['cad_path'] = data[5]
         meta['cad_scale'] = data[6]
         # meta['og_grasps'] = data[7]
-        #First ones that are good
-        # meta['og_grasps'] = data[1][:9,:,:,:]
+        # #First ones that are good
+        # print(len(data[1]   ))
+        meta['good_og_grasps'] = data[1][:9,:,:,:]
         #Later ones that are bad, sometimes very bad
-        # meta['og_grasps'] = data[1][9:,:,:,:]
+        meta['bad_og_grasps'] = data[1][9:,:,:,:]
         meta['og_grasps'] = data[1]
         # reshape to 64 x 4 x 4 from 32 x 1 x 2 x 4 x 4        
         if len(meta['og_grasps'].shape) == 5:
@@ -191,11 +194,12 @@ class GraspEvaluatorData(BaseDataset):
                 output_pcs.append(np.copy(output_pcs[0]))
                 output_pc_poses.append(np.copy(output_pc_poses[0]))
             else:
-                pc, camera_pose, _ = self.change_object_and_render(
-                    cad_path,
-                    cad_scale,
-                    thread_id=torch.utils.data.get_worker_info().id
-                    if torch.utils.data.get_worker_info() else 0)
+                # pc, camera_pose, _ = self.change_object_and_render(
+                #     cad_path,
+                #     cad_scale,
+                #     thread_id=torch.utils.data.get_worker_info().id
+                #     if torch.utils.data.get_worker_info() else 0)
+                pc, camera_pose = self.transform_to_pc_and_rotate(cad_path, cad_scale)
                 output_pcs.append(pc)
                 output_pc_poses.append(utils.inverse_transform(camera_pose))
 
@@ -210,6 +214,7 @@ class GraspEvaluatorData(BaseDataset):
         return output_pcs, output_grasps, output_labels, output_qualities, output_pc_poses, output_cad_paths, output_cad_scales
 
     def get_nonuniform_evaluator_data(self, path, verify_grasps=False):
+        
         # print(self.ratio_hardnegative,self.collision_hard_neg_max_translation, self.collision_hard_neg_min_translation, self.collision_hard_neg_max_rotation, self.collision_hard_neg_min_rotation, self.collision_hard_neg_num_perturbations)
 
         pos_grasps, pos_qualities, neg_grasps, neg_qualities, obj_mesh, cad_path, cad_scale = self.read_grasp_file(
@@ -245,6 +250,7 @@ class GraspEvaluatorData(BaseDataset):
             output_qualities.append(np.copy(selected_quality))
             output_labels.append(1)
             positive_grasps.append(selected_grasp)
+            # print(self.collision_hard_neg_num_perturbations)
             hard_neg_candidates += utils.perturb_grasp(
                 selected_grasp,
                 self.collision_hard_neg_num_perturbations,
@@ -272,8 +278,8 @@ class GraspEvaluatorData(BaseDataset):
                 self.collision_hard_neg_queue[path] = Queue()
             #hard negatives are perturbations of correct grasps.
             random_selector = np.random.rand()
-            if random_selector < self.ratio_hardnegative:
-                #print('add hard neg')
+            if random_selector <= self.ratio_hardnegative:
+                # print('add hard neg')
                 collisions, heuristic_qualities = utils.evaluate_grasps(
                     hard_neg_candidates, obj_mesh)
                 hard_neg_mask = collisions | (heuristic_qualities < 0.001)
@@ -284,6 +290,7 @@ class GraspEvaluatorData(BaseDataset):
                         (hard_neg_candidates[index], -1.0))
             if random_selector >= self.ratio_hardnegative or self.collision_hard_neg_queue[
                     path].qsize() < num_negative:
+                # print('add flex neg')
                 for negative_cluster in negative_clusters:
                     selected_grasp = neg_grasps[negative_cluster[0]][
                         negative_cluster[1]]
@@ -306,11 +313,12 @@ class GraspEvaluatorData(BaseDataset):
                 # output_pc_poses.append(0)
                 output_pc_poses.append(np.copy(output_pc_poses[0]))
             else:
-                pc, camera_pose, _ = self.change_object_and_render(
-                    cad_path,
-                    cad_scale,
-                    thread_id=torch.utils.data.get_worker_info().id
-                    if torch.utils.data.get_worker_info() else 0)
+                # pc, camera_pose, _ = self.change_object_and_render(
+                #     cad_path,
+                #     cad_scale,
+                #     thread_id=torch.utils.data.get_worker_info().id
+                #     if torch.utils.data.get_worker_info() else 0)
+                pc, camera_pose = self.transform_to_pc_and_rotate(cad_path, cad_scale)
                 #self.change_object(cad_path, cad_scale)
                 #pc, camera_pose, _ = self.render_random_scene()
                 output_pcs.append(pc)
@@ -320,6 +328,8 @@ class GraspEvaluatorData(BaseDataset):
                 output_grasps[iter][1] = camera_pose.dot(output_grasps[iter][1])
             else:
                 output_grasps[iter] = camera_pose.dot(output_grasps[iter])
+        # print(self.collision_hard_neg_queue[
+        #         path].qsize())
         output_pcs = np.asarray(output_pcs, dtype=np.float32)
         output_grasps = np.asarray(output_grasps, dtype=np.float32)
         output_labels = np.asarray(output_labels, dtype=np.int32)

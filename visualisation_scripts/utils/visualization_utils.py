@@ -116,13 +116,23 @@ def draw_scene(pc,
             g.glyph.glyph.scale_factor = 0.01
 
     grasp_pc = np.squeeze(utils.get_control_point_tensor(1, False), 0)
+    # grasp_pc[0], grasp_pc[1] = grasp_pc[1], grasp_pc[0]
     grasp_pc[2, 2] = 0.059
     grasp_pc[3, 2] = 0.059
 
     mid_point = 0.5 * (grasp_pc[2, :] + grasp_pc[3, :])
+    zero_point = np.zeros((3, ), np.float32)
+    zero_point[0] -= mid_point[0]
+    zero_point[1] -= mid_point[1]
+    zero_point[2] -= mid_point[2]
+    for point in grasp_pc:
+            point[0] -= mid_point[0]
+            point[1] -= mid_point[1]
+            point[2] -= mid_point[2]
 
+    mid_point = 0.5 * (grasp_pc[2, :] + grasp_pc[3, :])
     modified_grasp_pc = []
-    modified_grasp_pc.append(np.zeros((3, ), np.float32))
+    modified_grasp_pc.append(zero_point)
     modified_grasp_pc.append(mid_point)
     modified_grasp_pc.append(grasp_pc[2])
     modified_grasp_pc.append(grasp_pc[4])
@@ -131,7 +141,7 @@ def draw_scene(pc,
     modified_grasp_pc.append(grasp_pc[5])
 
     grasp_pc = np.asarray(modified_grasp_pc)
-
+    
     def transform_grasp_pc(g):
         output = np.matmul(grasp_pc, g[:3, :3].T)
         output += np.expand_dims(g[:3, 3], 0)

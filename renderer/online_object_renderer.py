@@ -100,8 +100,8 @@ class OnlineObjectRenderer:
         x = mask[1]
         y = mask[0]
 
-        normalized_x = (x.astype(np.float32) - width * 0.5) / width
-        normalized_y = (y.astype(np.float32) - height * 0.5) / height
+        normalized_x = ((x.astype(np.float32) - width * 0.5) / width)
+        normalized_y = ((y.astype(np.float32) - height * 0.5) / height)
 
         world_x = self._fx * normalized_x * depth[y, x]
         world_y = self._fy * normalized_y * depth[y, x]

@@ -12,6 +12,7 @@ from utils.visualization_utils import *
 import glob
 from renderer.online_object_renderer import OnlineObjectRenderer
 import threading
+import trimesh
 import trimesh.transformations as tra
 
 class NoPositiveGraspsException(Exception):
@@ -97,7 +98,35 @@ class BaseDataset(data.Dataset):
         camera_pose[:3, 3] -= pc_mean[0, :3]
 
         return pc, camera_pose, in_camera_pose
+    
+    def transform_to_pc_and_rotate(self,
+                                 cad_path,
+                                 cad_scale):
+        
+        npoints = 1024
 
+        # obj = sample.Object(cad_path)
+        # obj.rescale(cad_scale)
+        # pc = obj.mesh.sample(npoints)
+        obj = trimesh.load(cad_path)
+        translation = -obj.centroid
+        obj.apply_translation(translation)
+        obj.apply_scale(cad_scale)
+        pc = obj.sample(25000)
+        pc = pc - np.mean(pc, axis=0)
+        pc = self.apply_dropout(pc)
+        pc = utils.regularize_pc_point_count(pc, npoints)
+        pc_mean = np.mean(pc, 0, keepdims=True)
+        pc[:, :3] -= pc_mean[:, :3]
+
+        #Create the random rotation matrix
+        R = tra.random_rotation_matrix()
+        pc = np.matmul(pc, R[:3, :3].T)
+
+        
+
+        return pc, R
+    
     def change_object_and_render(self,
                                  cad_path,
                                  cad_scale,
@@ -175,7 +204,6 @@ class BaseDataset(data.Dataset):
                 #rotate the grasp pc by 90 degrees about the x axis
                 grasps[i][0][:3, :3] = np.matmul(grasps[i][0][:3, :3], R[:3, :3].T)
                 grasps[i][1][:3, :3] = np.matmul(grasps[i][1][:3, :3], R[:3, :3].T)
-                
                 
                 grasps[i][0] = S.dot(grasps[i][0])
                 grasps[i][1] = S.dot(grasps[i][1])

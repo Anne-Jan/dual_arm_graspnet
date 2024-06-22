@@ -11,6 +11,7 @@ from utils.visualization_utils import *
 import mayavi.mlab as mlab
 from utils import utils
 from data import DataLoader
+import trimesh.transformations as tra
 
 
 def make_parser():
@@ -143,12 +144,53 @@ def main(args):
         dataset = DataLoader(grasp_sampler_args)
         
         for i, data in enumerate(dataset):
-            generated_grasps, generated_scores = estimator.generate_and_refine_grasps(
-                data["pc"].squeeze())
+            # generated_grasps, generated_scores = estimator.generate_and_refine_grasps(
+            #     data["pc"].squeeze())
+            # print(np.array(generated_grasps).shape)
+            scale = data['cad_scale']
+            S = np.diag([scale, scale, scale, 1])
+            pc, _ = estimator.prepare_pc(data["pc"].squeeze())
+            generated_grasps, _, _ = estimator.generate_grasps(pc)
+            #reshape to n by 14
+            # generated_grasps = generated_grasps.reshape(-1, 14)
+            # generated_grasps = utils.transform_control_points(
+            #     generated_grasps[0], batch_size = len(generated_grasps[0]),mode='qt', device='cuda').cpu()
+            grasps = []
+            for grasp in generated_grasps:
+                print("grasp", grasp.shape)
+                euler_angles, translations = utils.convert_qt_to_rt(grasp.cpu())
+                selection = np.ones((len(euler_angles), 1))
+                refine_indexes, sample_indexes = np.where(selection)
+                euler_angles1 = euler_angles[:, :3]
+                euler_angles2 = euler_angles[:, 3:]
+                translations1 = translations[:, :3]
+                translations2 = translations[:, 3:]
+                for refine_index, sample_index in zip(refine_indexes, sample_indexes):
+                # print("refine_index", refine_index, "sample_index", sample_index)
+                    rt1 = tra.euler_matrix(*euler_angles1[refine_index, :])
+                    rt1[:3, 3] = translations1[refine_index, :]
+                    rt2 = tra.euler_matrix(*euler_angles2[refine_index, :])
+                    rt2[:3, 3] = translations2[refine_index, :]
+                    #Combine them into nx2x4x4 instead of nx4x4
+                    # rt1 = np.expand_dims(rt1, 0)
+                    # rt2 = np.expand_dims(rt2, 0)
+                    # print("rt1", rt1.shape, rt2.shape)
+                    # print("concatenated", np.concatenate((rt1, rt2), 0).shape)
+                    #Simply append them both to the list
+                    # rt1 = S.dot(rt1)
+                    # rt2 = S.dot(rt2)
+                    grasps.append(rt1)
+                    grasps.append(rt2)
+            generated_grasps = grasps
+        
+
+            print(np.array(generated_grasps).shape)
             mlab.figure(bgcolor=(1, 1, 1))
+            # draw_scene(data["pc"][0],
+            #            grasps=generated_grasps,
+            #            grasp_scores=generated_scores)
             draw_scene(data["pc"][0],
-                       grasps=generated_grasps,
-                       grasp_scores=generated_scores)
+                       grasps=generated_grasps)
             print('close the window to continue to next object . . .')
             mlab.show()
             break

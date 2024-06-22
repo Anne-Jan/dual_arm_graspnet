@@ -300,9 +300,19 @@ def get_control_point_tensor(batch_size, use_torch=True, device="cpu", dual_gras
                       control_points[1, :], control_points[-2, :],
                       control_points[-1, :]]
     control_points = np.asarray(control_points, dtype=np.float32)
+   
     np.expand_dims(control_points, 0)
     control_points = np.tile(np.expand_dims(control_points, 0),
                              [batch_size, 1, 1])
+    # # print(control_points.shape)
+    # for control_point in control_points:
+    #     mid_point = 0.5 * (control_point[2, :] + control_point[3, :])
+    #     for point in control_point:
+    #         point[0] -= mid_point[0]
+    #         point[1] -= mid_point[1]
+    #         point[2] -= mid_point[2]
+
+    
     if dual_grasp == True:
         #change the rotation component of the control points to 0
         #Make it N by 2 by 6 by 3, one control point tensor for each grasp in the grasp pair

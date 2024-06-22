@@ -27,6 +27,8 @@ class Object(object):
         """
         # print(filename)
         self.mesh = trimesh.load(filename)
+        translation = -self.mesh.centroid
+        self.mesh.apply_translation(translation)
         self.scale = 1.0
 
         # print(filename)

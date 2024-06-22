@@ -608,7 +608,7 @@ def rot_and_trans_to_grasps(euler_angles, translations, selection_mask):
         euler_angles2 = euler_angles[:, :, 3:]
         translations1 = translations[:, :, :3]
         translations2 = translations[:, :, 3:]
-        #Also split the selection mask into two parts, from 26x400 to 26x200
+        #Also split the selection mask into two parts
         selection_mask1 = selection_mask[:, :200]
         selection_mask2 = selection_mask[:, 200:]
         refine_indexes1, sample_indexes1 = np.where(selection_mask1)
@@ -651,6 +651,7 @@ def convert_qt_to_rt(grasps):
         # reshape it to (batch_size, 2, 7)
         grasps1 = grasps[:, :7]
         grasps2 = grasps[:, 7:]
+        print("grasps1", grasps1.shape, "grasps2", grasps2.shape)
         Ts1 = grasps1[:, 4:]
         Rs1 = qeuler(grasps1[:, :4], "zyx")
         Ts2 = grasps2[:, 4:]
