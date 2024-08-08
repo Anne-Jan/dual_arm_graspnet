@@ -113,6 +113,8 @@ class BaseDataset(data.Dataset):
         obj.apply_translation(translation)
         obj.apply_scale(cad_scale)
         pc = obj.sample(25000)
+        #Change each point from numpy.float64 to numpy.float32
+        
         pc = pc - np.mean(pc, axis=0)
         pc = self.apply_dropout(pc)
         pc = utils.regularize_pc_point_count(pc, npoints)
@@ -122,7 +124,7 @@ class BaseDataset(data.Dataset):
         #Create the random rotation matrix
         R = tra.random_rotation_matrix()
         pc = np.matmul(pc, R[:3, :3].T)
-
+        pc = pc.astype(np.float32)
         
 
         return pc, R

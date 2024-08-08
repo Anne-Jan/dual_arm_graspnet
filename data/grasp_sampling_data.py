@@ -34,13 +34,16 @@ class GraspSamplingData(BaseDataset):
                 return self.__getitem__(np.random.randint(0, self.size))
 
         #self.change_object(cad_path, cad_scale)
-        #pc, camera_pose, _ = self.render_random_scene()
+        # pc, camera_pose, _ = self.render_random_scene()
 
         # pc, camera_pose, _ = self.change_object_and_render(
         #     cad_path,
         #     cad_scale,
         #     thread_id=torch.utils.data.get_worker_info().id
         #     if torch.utils.data.get_worker_info() else 0)
+        #Check type of pc
+        # print(pc[0].shape)
+        
         pc, camera_pose = self.transform_to_pc_and_rotate(cad_path, cad_scale)
         
         output_qualities = []

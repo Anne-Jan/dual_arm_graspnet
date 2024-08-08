@@ -1,6 +1,8 @@
 import torch
 import numpy as np
 
+import utils.utils as utils
+from utils.visualization_utils import *
 
 def control_point_l1_loss_better_than_threshold(pred_control_points,
                                                 gt_control_points,
@@ -51,18 +53,28 @@ def control_point_l1_loss(pred_control_points,
     #      gt_control_points.shape)
     # print(pred_control_points.shape, gt_control_points.shape)
     
-    error = torch.sum(torch.abs(pred_control_points - gt_control_points), -1)
-    # print('error', error.shape)
-    error = torch.mean(error, -1)
-    # print('error', error.shape)
     
+    # print('confidence', confidence.shape)
     if confidence is not None:
         assert (confidence_weight is not None)
         if dual_grasp:
+            error = torch.sum(torch.abs(pred_control_points - gt_control_points), -1)
+            # print('error', error.shape)
+            error = torch.mean(error, -1)
+            # print('mean error', error.shape)
+            # confidence = torch.unsqueeze(confidence, 1).repeat(1,2)
+            # print(confidence[0])
             # print('error', error.shape, "confidence", torch.unsqueeze(confidence, 1).repeat(1,2).shape)
             #Do it twice for each grasp, only one confidence value
-            error = error * torch.unsqueeze(confidence, 1).repeat(1,2)
+            # error = error * torch.unsqueeze(confidence, 1).repeat(1,2)
+            error *= confidence
+            # print("final error", error.shape)
         else:
+            error = torch.sum(torch.abs(pred_control_points - gt_control_points), -1)
+            # print('error', error.shape)
+            error = torch.mean(error, -1)
+            # print('mean error', error.shape)
+            # print('error', error.shape, "confidence", confidence.shape)
             error *= confidence
         confidence_term = torch.mean(
             torch.log(torch.max(

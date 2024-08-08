@@ -117,24 +117,27 @@ def draw_scene(pc,
 
     grasp_pc = np.squeeze(utils.get_control_point_tensor(1, False), 0)
     
-    grasp_pc[2, 2] = 0.059
-    grasp_pc[3, 2] = 0.059
+
+    ###Comment these two lines back in and comment out the lines in get_control_point_tensor to revert
+    # grasp_pc[2, 2] = 0.059
+    # grasp_pc[3, 2] = 0.059
     mid_point = 0.5 * (grasp_pc[2, :] + grasp_pc[3, :])
     zero_point = np.zeros((3, ), np.float32)
 
     ###Code snippet to modify the grasp_pc to match the gripper model, only visual
-    zero_point[0] -= mid_point[0]
-    zero_point[1] -= mid_point[1]
-    zero_point[2] -= mid_point[2]
-    for point in grasp_pc:
-            point[0] -= mid_point[0]
-            point[1] -= mid_point[1]
-            point[2] -= mid_point[2]
+    # zero_point[0] -= mid_point[0]
+    # zero_point[1] -= mid_point[1]
+    # zero_point[2] -= mid_point[2]
+    # for point in grasp_pc:
+    #         point[0] -= mid_point[0]
+    #         point[1] -= mid_point[1]
+    #         point[2] -= mid_point[2]
 
-    mid_point = 0.5 * (grasp_pc[2, :] + grasp_pc[3, :])
+    # mid_point = 0.5 * (grasp_pc[2, :] + grasp_pc[3, :])
     ### End of code snippet
     modified_grasp_pc = []
-    modified_grasp_pc.append(zero_point)
+    # modified_grasp_pc.append(zero_point)
+    modified_grasp_pc.append(grasp_pc[0])
     modified_grasp_pc.append(mid_point)
     modified_grasp_pc.append(grasp_pc[2])
     modified_grasp_pc.append(grasp_pc[4])
@@ -165,6 +168,17 @@ def draw_scene(pc,
         max_score = np.max(grasp_scores)
         top5 = np.array(grasp_scores).argsort()[-5:][::-1]
 
+    ##
+    #if the target_cps is not a numpy array, convert it to one
+    if target_cps is not None and not isinstance(target_cps, np.ndarray):
+        target_cps = target_cps.cpu().detach().numpy()
+        if target_cps is not None:
+            for i in range(len(target_cps)):
+                mlab.points3d(target_cps[i, :, 0],
+                            target_cps[i, :, 1],
+                            target_cps[i, :, 2],
+                            color=(1.0, 0.0, 0),
+                            scale_factor=0.01)
     for ii in range(len(grasps)):
         i = indexes[ii]
         if grasps_selection is not None:

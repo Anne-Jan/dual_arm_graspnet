@@ -117,23 +117,32 @@ def draw_scene(pc,
 
     grasp_pc = np.squeeze(utils.get_control_point_tensor(1, False), 0)
     # grasp_pc[0], grasp_pc[1] = grasp_pc[1], grasp_pc[0]
-    grasp_pc[2, 2] = 0.059
-    grasp_pc[3, 2] = 0.059
+    # grasp_pc[2, 2] = 0.059
+    # grasp_pc[3, 2] = 0.059
 
     mid_point = 0.5 * (grasp_pc[2, :] + grasp_pc[3, :])
     zero_point = np.zeros((3, ), np.float32)
     zero_point[0] -= mid_point[0]
     zero_point[1] -= mid_point[1]
     zero_point[2] -= mid_point[2]
-    for point in grasp_pc:
-            point[0] -= mid_point[0]
-            point[1] -= mid_point[1]
-            point[2] -= mid_point[2]
+    zero_point[0] -= mid_point[0]
+    zero_point[1] -= mid_point[1]
+    zero_point[2] -= mid_point[2]
+    zero_point[0] -= mid_point[0]
+    zero_point[1] -= mid_point[1]
+    zero_point[2] -= mid_point[2]
+    
+    # for point in grasp_pc:
+    #         point[0] -= mid_point[0]
+    #         point[1] -= mid_point[1]
+    #         point[2] -= mid_point[2]
 
-    mid_point = 0.5 * (grasp_pc[2, :] + grasp_pc[3, :])
+    # mid_point = 0.5 * (grasp_pc[2, :] + grasp_pc[3, :])
     modified_grasp_pc = []
-    modified_grasp_pc.append(zero_point)
+    modified_grasp_pc.append(grasp_pc[1])
+    # modified_grasp_pc.append(zero_point)
     modified_grasp_pc.append(mid_point)
+    # modified_grasp_pc.append(grasp_pc[0])
     modified_grasp_pc.append(grasp_pc[2])
     modified_grasp_pc.append(grasp_pc[4])
     modified_grasp_pc.append(grasp_pc[2])
@@ -231,6 +240,11 @@ def draw_scene(pc,
                             color=gripper_color,
                             tube_radius=tube_radius,
                             opacity=1)
+                # mlab.points3d(pts[:, 0],
+                #         pts[:, 1],
+                #         pts[:, 2],
+                #         color=gripper_color,
+                #         opacity=1)
                 if target_cps is not None:
                     mlab.points3d(target_cps[ii, :, 0],
                                   target_cps[ii, :, 1],

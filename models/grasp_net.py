@@ -53,22 +53,23 @@ class GraspNetModel:
 
     def set_input(self, data):
         input_pcs = torch.from_numpy(data['pc']).contiguous()
+        self.pc_for_visualization = input_pcs
         input_grasps = torch.from_numpy(data['grasp_rt']).float()
-
         self.og_grasps = data['og_grasps']
-        print(len(self.og_grasps))
-        #reshape from 32 x 2 x 4 x 4 to 64 x 4 x 4
-        if len(self.og_grasps.shape) == 4:
-            self.og_grasps = self.og_grasps.reshape(-1, 4, 4)
-        mlab.figure(bgcolor=(1, 1, 1))
-        draw_scene(
-                input_pcs[0].cpu().detach().numpy(),
-                grasps=self.og_grasps,
-            )
-        mlab.show()
-        # Cear the scene
-        mlab.clf()
-        print(xd)
+
+        target_cps = data['target_cps'].reshape(-1, 6, 3)
+        # print(len(self.og_grasps))
+        # #reshape from 32 x 2 x 4 x 4 to 64 x 4 x 4
+        # if len(self.og_grasps.shape) == 4:
+        #     self.og_grasps = self.og_grasps.reshape(-1, 4, 4)
+        # mlab.figure(bgcolor=(1, 1, 1))
+        # draw_scene(
+        #         input_pcs[0].cpu().detach().numpy(),
+        #         grasps=self.og_grasps,
+        #         target_cps=target_cps,
+        #     )
+        # mlab.show()
+        # print(xd)
 
         ###CODE SNIPPET TO VISUALIZE GOOD AND BAD GRASPS FOR THE EVALUATOR
         # self.og_grasps = data['good_og_grasps']
@@ -95,8 +96,6 @@ class GraspNetModel:
         #         grasps=self.og_grasps,
         #     )
         # mlab.show()
-        # # Cear the scene
-        # mlab.clf()
         # print(xd)
         ###END OF CODE SNIPPET
      
@@ -139,7 +138,6 @@ class GraspNetModel:
     def backward(self, out):
         if self.opt.arch == 'vae':
             predicted_cp, confidence, mu, logvar = out
-            # print(predicted_cp.shape)
             predicted_cp = utils.transform_control_points(
                 predicted_cp, predicted_cp.shape[0], device=self.device, dual_grasp = self.dual_grasp)
             self.reconstruction_loss, self.confidence_loss = self.criterion[1](
@@ -172,7 +170,25 @@ class GraspNetModel:
                 self.opt.confidence_weight,
                 device=self.device)
             self.loss = self.classification_loss + self.confidence_loss
+        
 
+        ###CODE SNIPPET TO VISUALIZE THE PREDICTED CONTROL POINTS
+        # # if len(self.og_grasps.shape) == 4:
+        # #     self.og_grasps = self.og_grasps.reshape(-1, 4, 4)
+        # if len(predicted_cp.shape) == 4:
+        #     predicted_cp = predicted_cp.reshape(-1, 6, 3)
+        # # print(self.og_grasps.shape, predicted_cp.shape)
+        # # print(predicted_cp.shape)
+
+        # mlab.figure(bgcolor=(1, 1, 1))
+        # draw_scene(
+        #         self.pc_for_visualization[0].cpu().detach().numpy(),
+        #         # grasps=self.og_grasps,
+        #         target_cps=predicted_cp,
+        #     )
+        # mlab.show()
+        # print(xd)
+        ##END OF CODE SNIPPET
         self.loss.backward()
 
     def optimize_parameters(self):

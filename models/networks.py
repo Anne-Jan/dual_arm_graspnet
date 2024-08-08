@@ -8,7 +8,8 @@ from models import losses
 from torch.nn import Sequential as Seq, Linear as Lin, ReLU, BatchNorm1d as BN
 import pointnet2_ops.pointnet2_modules as pointnet2
 import numpy as np
-
+import utils.utils as utils
+from utils.visualization_utils import *
 
 def get_scheduler(optimizer, opt):
     if opt.lr_policy == 'lambda':
@@ -119,11 +120,12 @@ class GraspSampler(nn.Module):
             self.tleft = nn.Linear(model_scale * 1024, 3)
             self.qright = nn.Linear(model_scale * 1024, 4)
             self.tright = nn.Linear(model_scale * 1024, 3)
+            self.confidence = nn.Linear(model_scale * 1024, 2)
         else:
             self.dual_grasp = False
             self.q = nn.Linear(model_scale * 1024, 4)
             self.t = nn.Linear(model_scale * 1024, 3)
-        self.confidence = nn.Linear(model_scale * 1024, 1)
+            self.confidence = nn.Linear(model_scale * 1024, 1)
 
     def decode(self, xyz, z, dual_grasp=False):
         xyz_features = self.concatenate_z_with_pc(xyz,
@@ -192,6 +194,10 @@ class GraspSamplerVAE(GraspSampler):
         if dual_grasp:
             self.encoder = base_network(pointnet_radius, pointnet_nclusters,
                                         model_scale, 35)
+            # self.encoder_left = base_network(pointnet_radius, pointnet_nclusters,
+            #                             model_scale, 19)
+            # self.encoder_right = base_network(pointnet_radius, pointnet_nclusters,
+            #                             model_scale, 19)
         else:
             self.encoder = base_network(pointnet_radius, pointnet_nclusters,
                                     model_scale, 19)
@@ -202,7 +208,14 @@ class GraspSamplerVAE(GraspSampler):
         self.latent_space = nn.ModuleList([mu, logvar])
 
     def encode(self, xyz, xyz_features):
-        # print(xyz.shape, xyz_features.shape)
+        # if self.dual_grasp:
+        #     for module in self.encoder_left[0]:
+        #         xyz_left, xyz_features_left = module(xyz, xyz_features)
+        #     for module in self.encoder_right[0]:
+        #         xyz_right, xyz_features_right = module(xyz, xyz_features)
+        #     xyz_features = torch.cat((xyz_features_left, xyz_features_right), -1)
+        #     return self.encoder_left[1](xyz_features_left.squeeze(-1)), self.encoder_right[1](xyz_features_right.squeeze(-1))
+        # else:
         for module in self.encoder[0]:
             xyz, xyz_features = module(xyz, xyz_features)
         return self.encoder[1](xyz_features.squeeze(-1))
@@ -230,7 +243,23 @@ class GraspSamplerVAE(GraspSampler):
         z = self.encode(pc, input_features)
         mu, logvar = self.bottleneck(z)
         z = self.reparameterize(mu, logvar)
+        print(z.shape)
         qt, confidence = self.decode(pc, z, self.dual_grasp)
+        ###CODE SNIPPET TO VISUALIZE THE GENERATED CONTROL POINTS
+        # predicted_cp = utils.transform_control_points(
+        #         qt, qt.shape[0], device=self.device, dual_grasp = self.dual_grasp)
+        # if len(predicted_cp.shape) == 4:
+        #     predicted_cp = predicted_cp.reshape(-1, 6, 3)
+
+        # mlab.figure(bgcolor=(1, 1, 1))
+        # draw_scene(
+        #         pc[0].cpu().detach().numpy(),
+        #         # grasps=self.og_grasps,
+        #         target_cps=predicted_cp,
+        #     )
+        # mlab.show()
+        # print(xd)
+        ###END OF CODE SNIPPET
         return qt, confidence, mu, logvar
 
     def forward_test(self, pc, grasp):
@@ -248,7 +277,21 @@ class GraspSamplerVAE(GraspSampler):
     def generate_grasps(self, pc, z=None):
         if z is None:
             z = self.sample_latent(pc.shape[0])
-        qt, confidence = self.decode(pc, z)
+        qt, confidence = self.decode(pc, z, self.dual_grasp)
+        predicted_cp = utils.transform_control_points(
+                qt, qt.shape[0], device=self.device, dual_grasp = self.dual_grasp)
+        if len(predicted_cp.shape) == 4:
+            predicted_cp = predicted_cp.reshape(-1, 6, 3)
+
+        mlab.figure(bgcolor=(1, 1, 1))
+        draw_scene(
+                pc[0].cpu().detach().numpy(),
+                # grasps=self.og_grasps,
+                target_cps=predicted_cp,
+            )
+        mlab.show()
+        print(xd)
+        
         return qt, confidence, z.squeeze()
 
     def generate_dense_latents(self, resolution):

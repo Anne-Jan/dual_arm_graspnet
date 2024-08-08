@@ -170,8 +170,8 @@ if __name__ == '__main__':
         if len(grasps.shape) == 3:
             grasps[:, :3, 3] -= object_mean
         else:
-            # scale = 1
-            scale = 0.2
+            scale = 1
+            # scale = 0.2
             json_dict['object_scale'] = json_dict['object_scale'] * scale
             # scale= scale * 1.2
             
@@ -230,7 +230,8 @@ if __name__ == '__main__':
         #     pc_pose = utils.inverse_transform(camera_pose)
         #     pc = pc.dot(pc_pose.T)
         pc = pc[:, :3]
-
+        #only visualize the first grasp
+        grasps = grasps[:4]
         # visualize the scene with mayavi
         mlab.figure(bgcolor=(1, 1, 1))
         draw_scene(
@@ -238,7 +239,7 @@ if __name__ == '__main__':
                 grasps=grasps,
             )
         mlab.show()
-        # break
+        break
         # grasp_pc = np.squeeze(utils.get_control_point_tensor(1, False), 0)
 
         # #swap two values of the grasp_pc that is 6x3
