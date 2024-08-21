@@ -52,34 +52,56 @@ def control_point_l1_loss(pred_control_points,
     #print('control_point_l1_loss', pred_control_points.shape,
     #      gt_control_points.shape)
     # print(pred_control_points.shape, gt_control_points.shape)
-    
-    
+
+    # confidence = confidence.reshape(32, 2, 1).swapaxes(1, 2).reshape(32, 2)
     # print('confidence', confidence.shape)
     if confidence is not None:
         assert (confidence_weight is not None)
         if dual_grasp:
+            ###Code snippet to test the error calculation
+            ###Set the predicted control points to the ground truth control points and perform random perturbations that are scaled
+            # pred_control_points = gt_control_points
+            # pred_control_points = pred_control_points + torch.randn_like(pred_control_points) * 0.2
+            # error = torch.sum(torch.abs(pred_control_points - gt_control_points), -1)
+            # error = torch.mean(error, -1)
+            # error *= confidence
+            # error = torch.mean(error, -1)
+            # print('error', torch.mean(error))
+            # print(xd)
+            ###End of code snippet
+
             error = torch.sum(torch.abs(pred_control_points - gt_control_points), -1)
             # print('error', error.shape)
+            #Try to make the error bigger, make it inversely proportional to the downscaling factor of the meshes
+            # error *= 2.5
             error = torch.mean(error, -1)
-            # print('mean error', error.shape)
-            # confidence = torch.unsqueeze(confidence, 1).repeat(1,2)
-            # print(confidence[0])
-            # print('error', error.shape, "confidence", torch.unsqueeze(confidence, 1).repeat(1,2).shape)
-            #Do it twice for each grasp, only one confidence value
-            # error = error * torch.unsqueeze(confidence, 1).repeat(1,2)
             error *= confidence
-            # print("final error", error.shape)
+            #Take the mean of each pair
+            error = torch.mean(error, -1)
+            # print("final error mean", error)
+            if torch.isnan(torch.mean(error)):
+                print('error is nan')
+            #split the confidence in half
+            confidence = torch.mean(confidence, -1)
+            confidence_term = torch.mean(
+                torch.log(torch.max(
+                    confidence,
+                    torch.tensor(1e-10).to(device)))) * confidence_weight
+            #check if the confidence term is nan
+            if torch.isnan(confidence_term):
+                print('confidence_term is nan')
         else:
             error = torch.sum(torch.abs(pred_control_points - gt_control_points), -1)
+            print('error', error.shape)
             # print('error', error.shape)
             error = torch.mean(error, -1)
             # print('mean error', error.shape)
             # print('error', error.shape, "confidence", confidence.shape)
             error *= confidence
-        confidence_term = torch.mean(
-            torch.log(torch.max(
-                confidence,
-                torch.tensor(1e-10).to(device)))) * confidence_weight
+            confidence_term = torch.mean(
+                torch.log(torch.max(
+                    confidence,
+                    torch.tensor(1e-10).to(device)))) * confidence_weight
         #print('confidence_term = ', confidence_term.shape)
 
     #print('l1_error = {}'.format(error.shape))
@@ -194,10 +216,14 @@ def min_distance_better_than_threshold(pred_control_points,
     return torch.mean(error[mask]), torch.mean(mask)
 
 
-def kl_divergence(mu, log_sigma, device="cpu"):
+def kl_divergence(mu, log_sigma, device="cpu", dual_grasp=False):
     """
       Computes the kl divergence for batch of mu and log_sigma.
     """
+    # if dual_grasp:
+    #     mu = torch.mean(mu, -1)
+    #     log_sigma = torch.mean(log_sigma, -1)
+
     return torch.mean(
         -.5 * torch.sum(1. + log_sigma - mu**2 - torch.exp(log_sigma), dim=-1))
 

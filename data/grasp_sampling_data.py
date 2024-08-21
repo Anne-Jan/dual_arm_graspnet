@@ -76,6 +76,18 @@ class GraspSamplingData(BaseDataset):
             #     len(pos_grasps), 2, 4, 4)
             #Reshape it to (num_grasps, 2, 16)
             meta['og_grasps'] = np.array(output_grasps)
+            # print(np.array(output_grasps[0]).shape)
+            # print("unflattened", np.array(output_grasps)[0])
+            # print("flattened", np.array(output_grasps).reshape(len(output_grasps), -1)[0])
+            # print(xd)
+            #reshape it from (num_grasps, 2, 4, 4) to twice the number of grasps, 16
+            # reshaped_grasps = np.array(output_grasps).reshape(64, 4, 4)
+            # reshaped_grasps = reshaped_grasps.reshape(64, -1)
+            # print("unflattened", np.array(output_grasps)[0])
+            # print("flattened", reshaped_grasps[0], "flattened 2", reshaped_grasps[1])
+            # meta['grasp_rt'] = reshaped_grasps
+
+            
             meta['grasp_rt'] = np.array(output_grasps).reshape(
                 len(output_grasps), -1)
             meta['target_cps'] = np.array(gt_control_points[:, :, :, :3])

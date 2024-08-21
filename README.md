@@ -119,16 +119,24 @@ To train the grasp sampler (vae) with a configuration that works on a gpu with 8
 python3 train.py  --arch vae  --dataset_root_folder shapenet_models/da2_dataset/  --num_grasps_per_object 32 --niter 1000 --niter_decay 10000 --save_epoch_freq 50 --save_latest_freq 250 --run_test_freq 10 --dual_grasp True
 ```
 
-To look at the performance after training run"
+To look at the performance after training run (WIP)"
 
 ```shell
 python -m demo.main --grasp_sampler_folder checkpoints/vae_lr_0002_bs_32_scale_1_npoints_128_radius_02_latent_size_2/ --refinement_method gradient --dual_grasp
 ```
 
-## DA2 Dataset Issue
+## DA2 Dataset Visualisation Code Snippets
 
-When converting the meshes to pointcloud the resulting pointcloud is shifted. The creation of the pointcloud occurs in `renderer/online_object_renderer.py`. Specifically in the `to_pointcloud()` function on line `96`.
-In `models/grasp_net.py` on lines `62-79` the resulting pointclouds and it grasps are visualized. Commenting these lines shoud result in the training script running normally.
+`models/grasp_net.py` `line 66-75` code snippet to visualize the input pc with grasps and corresponding control points.
+Similar snippet is present on `line 175-191` in the backward pass to visualize the generated control points by the network
+
+`models/grasp_net.py` sets the input for the data as well as performs the backward pass that calculates the losses. These loss functions called are `control_point_l1_loss()` and `kl_divergence()` that are present in the file `models/losses.py`
+The file `models/networks.py` creates the VAE, so the encoder and decoder, as well as perform the forward pass that calls the `encode()` end `decode()` functions respectively.
+
+The dataloader part is handled by the files `data/base_dataset.py` (here the scaling occurs) and `data/grasp_sampling_data.py` for the VAE and `data/grasp_evaluator_data.py` for the evaluator model. On `lines 91-92` in `grasp_sampling.py` the grasp poses get flattened and those are used as input for the model together with the PC.
+
+The file `utils/utils.py` contains multiple functionts, most importantly the `get_control_point_tensor()` and `transform_control_points()` which transforms the sampled quaternions and translations into control points.
+
 
 
 

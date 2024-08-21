@@ -112,47 +112,75 @@ class GraspSampler(nn.Module):
                        num_input_features, dual_grasp=False):
         # The number of input features for the decoder is 3+latent space where 3
         # represents the x, y, z position of the point-cloud
-        self.decoder = base_network(pointnet_radius, pointnet_nclusters,
-                                    model_scale, num_input_features)
+        
         if dual_grasp:
+            self.decoder_left = base_network(pointnet_radius, pointnet_nclusters,
+                                    model_scale, num_input_features)
+            self.decoder_right = base_network(pointnet_radius, pointnet_nclusters,
+                                    model_scale, num_input_features)
             self.dual_grasp = True
             self.qleft = nn.Linear(model_scale * 1024, 4)
             self.tleft = nn.Linear(model_scale * 1024, 3)
             self.qright = nn.Linear(model_scale * 1024, 4)
             self.tright = nn.Linear(model_scale * 1024, 3)
-            self.confidence = nn.Linear(model_scale * 1024, 2)
+            self.confidence_left = nn.Linear(model_scale * 1024, 1)
+            self.confidence_right = nn.Linear(model_scale * 1024, 1)
         else:
+            self.decoder = base_network(pointnet_radius, pointnet_nclusters,
+                                    model_scale, num_input_features)
             self.dual_grasp = False
             self.q = nn.Linear(model_scale * 1024, 4)
             self.t = nn.Linear(model_scale * 1024, 3)
             self.confidence = nn.Linear(model_scale * 1024, 1)
 
     def decode(self, xyz, z, dual_grasp=False):
-        xyz_features = self.concatenate_z_with_pc(xyz,
-                                                  z).transpose(-1,
-                                                               1).contiguous()
-        for module in self.decoder[0]:
-            xyz, xyz_features = module(xyz, xyz_features)
-        x = self.decoder[1](xyz_features.squeeze(-1))
+        
         dual_grasp = self.dual_grasp
         if dual_grasp:
+            z_left = z[0]
+            z_right = z[1]
+            xyz_left = xyz
+            xyz_right = xyz
+            xyz_features_left = self.concatenate_z_with_pc(xyz,
+                                                    z_left).transpose(-1,
+                                                                1).contiguous()
+            xyz_features_right = self.concatenate_z_with_pc(xyz,
+                                                    z_right).transpose(-1,
+                                                                1).contiguous()
+            for module in self.decoder_left[0]:
+                xyz_left, xyz_features_left = module(xyz_left, xyz_features_left)
+            x_left = self.decoder_left[1](xyz_features_left.squeeze(-1))
+            for module in self.decoder_right[0]:
+                xyz_right, xyz_features_right = module(xyz_right, xyz_features_right)
+            x_right = self.decoder_right[1](xyz_features_right.squeeze(-1))
             # predicted_qt = torch.cat(
             #     (F.normalize(self.qleft(x), p=2, dim=-1), self.tleft(x),
             #     F.normalize(self.qright(x), p=2, dim=-1), self.tright(x)) -1)
             predicted_qtleft = torch.cat(
-                (F.normalize(self.qleft(x), p=2, dim=-1), self.tleft(x)), -1)
+                (F.normalize(self.qleft(x_left), p=2, dim=-1), self.tleft(x_left)), -1)
             predicted_qtright = torch.cat(
-                (F.normalize(self.qright(x), p=2, dim=-1), self.tright(x)), -1)
+                (F.normalize(self.qright(x_right), p=2, dim=-1), self.tright(x_right)), -1)
             # print(predicted_qtleft.shape, predicted_qtright.shape)
             #Combine the two grasps with size (batch_size, 14)
             predicted_qt = torch.cat((predicted_qtleft, predicted_qtright), -1)
-            # predicted_qt = predicted_qtleft.reshape(32, 2, 7).swapaxes(1, 2).reshape(32, 14)
             # print(predicted_qt.shape)
+            confidence_left = torch.sigmoid(self.confidence_left(x_left)).squeeze()
+            confidence_right = torch.sigmoid(self.confidence_right(x_right)).squeeze()
+            # print(confidence_left.shape, confidence_right.shape)
+            confidence = torch.stack((confidence_left, confidence_right), dim = 1)
+            # print(confidence.shape)
+            return predicted_qt, confidence
         else:
+            xyz_features = self.concatenate_z_with_pc(xyz,
+                                                  z).transpose(-1,
+                                                               1).contiguous()
+            for module in self.decoder[0]:
+                xyz, xyz_features = module(xyz, xyz_features)
+            x = self.decoder[1](xyz_features.squeeze(-1))
             predicted_qt = torch.cat(
                 (F.normalize(self.q(x), p=2, dim=-1), self.t(x)), -1)
         # print(predicted_qt.shape)
-        return predicted_qt, torch.sigmoid(self.confidence(x)).squeeze()
+            return predicted_qt, torch.sigmoid(self.confidence(x)).squeeze()
 
     def concatenate_z_with_pc(self, pc, z):
         z.unsqueeze_(1)
@@ -193,12 +221,12 @@ class GraspSamplerVAE(GraspSampler):
         # position of the point-cloud and the flattened 2x4x4=32 grasp pose matrix
         # print("dual_grasp", dual_grasp)
         if dual_grasp:
-            self.encoder = base_network(pointnet_radius, pointnet_nclusters,
-                                        model_scale, 35)
-            # self.encoder_left = base_network(pointnet_radius, pointnet_nclusters,
-            #                             model_scale, 19)
-            # self.encoder_right = base_network(pointnet_radius, pointnet_nclusters,
-            #                             model_scale, 19)
+            # self.encoder = base_network(pointnet_radius, pointnet_nclusters,
+            #                             model_scale, 35)
+            self.encoder_left = base_network(pointnet_radius, pointnet_nclusters,
+                                        model_scale, 19)
+            self.encoder_right = base_network(pointnet_radius, pointnet_nclusters,
+                                        model_scale, 19)
         else:
             self.encoder = base_network(pointnet_radius, pointnet_nclusters,
                                     model_scale, 19)
@@ -209,9 +237,24 @@ class GraspSamplerVAE(GraspSampler):
         self.latent_space = nn.ModuleList([mu, logvar])
 
     def encode(self, xyz, xyz_features):
-        for module in self.encoder[0]:
-            xyz, xyz_features = module(xyz, xyz_features)
-        return self.encoder[1](xyz_features.squeeze(-1))
+        # print(xyz.shape, xyz_features.shape)
+       
+        if self.dual_grasp: 
+            xyz_left = xyz
+            xyz_right = xyz
+            xyz_features_left = xyz_features[:, 0, :, :]
+            xyz_features_right = xyz_features[:, 1, :, :]
+            # print(xyz_features_left.shape, xyz_features_right.shape)
+            for module in self.encoder_left[0]:
+                xyz_left, xyz_features_left = module(xyz_left, xyz_features_left.contiguous())
+            for module in self.encoder_right[0]:
+                xyz_right, xyz_features_right = module(xyz_right, xyz_features_right.contiguous())
+            # xyz_features = torch.cat((xyz_features_left, xyz_features_right), -1)
+            return self.encoder_left[1](xyz_features_left.squeeze(-1)), self.encoder_right[1](xyz_features_right.squeeze(-1))
+        else:
+            for module in self.encoder[0]:
+                xyz, xyz_features = module(xyz, xyz_features)
+            return self.encoder[1](xyz_features.squeeze(-1))
 
     def bottleneck(self, z):
         return self.latent_space[0](z), self.latent_space[1](z)
@@ -230,34 +273,47 @@ class GraspSamplerVAE(GraspSampler):
 
     def forward_train(self, pc, grasp):
         # print(pc.shape, grasp.shape)
-        #Double the amount of pc 
-        # pc = pc.repeat(2, 1, 1)
-        #Calculate the mean of the pointcloud
-        #print the range of the point cloud
-        input_features = torch.cat(
-            (pc, grasp.unsqueeze(1).expand(-1, pc.shape[1], -1)),
-            -1).transpose(-1, 1).contiguous()
-        z = self.encode(pc, input_features)
-        # print("z", z.shape)
-        mu, logvar = self.bottleneck(z)
-        z = self.reparameterize(mu, logvar)
-        qt, confidence = self.decode(pc, z, self.dual_grasp)
-        # print("qt", qt.shape, "confidence", confidence.shape, "mu", mu.shape, "logvar", logvar.shape)
-        #check if any nan values in the confidence, qt and z
-        if torch.isnan(confidence).any() or torch.isnan(qt).any() or torch.isnan(z).any():
-            print("Nan values in confidence, qt or z")
-            print(confidence)
-            print(qt)
-            print(z)
-            print(mu)
-            print(logvar)
+        if self.dual_grasp:
+            grasp = grasp.reshape(len(grasp[0]),2, 16)
+            left_grasp = grasp[:, 0, :]
+            right_grasp = grasp[:, 1, :]
+            input_features_left = torch.cat(
+                (pc, left_grasp.unsqueeze(1).expand(-1, pc.shape[1], -1)),
+                -1).transpose(-1, 1).contiguous()
+            input_features_right = torch.cat(
+                (pc, right_grasp.unsqueeze(1).expand(-1, pc.shape[1], -1)),
+                -1).transpose(-1, 1).contiguous()
+            #reshape the input features to batch x 2 x 19 x 1024
+            input_features = torch.stack((input_features_left, input_features_right), dim = 1)
+            z = self.encode(pc, input_features)
+            mu_left, logvar_left = self.bottleneck(z[0])
+            mu_right, logvar_right = self.bottleneck(z[1])
+            z_left = self.reparameterize(mu_left, logvar_left)
+            z_right = self.reparameterize(mu_right, logvar_right)
+            z = (z_left, z_right)
+            qt, confidence = self.decode(pc, z, self.dual_grasp)
+            # print("mu shapes", mu_left.shape, mu_right.shape)
+            mu = torch.cat((mu_left, mu_right), -1)
+            # print("mu shape", mu.shape) 
+            # print(logvar_left.shape, logvar_right.shape)\
+            logvar = torch.cat((logvar_left, logvar_right), -1)
+        else:
+            input_features = torch.cat(
+                (pc, grasp.unsqueeze(1).expand(-1, pc.shape[1], -1)),
+                -1).transpose(-1, 1).contiguous()
+            z = self.encode(pc, input_features)
+            mu, logvar = self.bottleneck(z)
+            print("mu shape", mu.shape)
+            print("logvar shape", logvar.shape)
+            z = self.reparameterize(mu, logvar)
+            qt, confidence = self.decode(pc, z, self.dual_grasp)
+        print(mu.shape, logvar.shape)
         ###CODE SNIPPET TO VISUALIZE THE GENERATED CONTROL POINTS
         # predicted_cp = utils.transform_control_points(
         #         qt, qt.shape[0], device=self.device, dual_grasp = self.dual_grasp)
         # if len(predicted_cp.shape) == 4:
         #     predicted_cp = predicted_cp.reshape(-1, 6, 3)
-        # # count the unique grasps
-        # print("unique grasps", len(np.unique(predicted_cp.cpu().detach().numpy(), axis=0)))
+
         # mlab.figure(bgcolor=(1, 1, 1))
         # draw_scene(
         #         pc[0].cpu().detach().numpy(),
@@ -267,17 +323,35 @@ class GraspSamplerVAE(GraspSampler):
         # mlab.show()
         # print(xd)
         ###END OF CODE SNIPPET
-        # print("qt", qt.shape, "confidence", confidence.shape, "mu", mu.shape, "logvar", logvar.shape)
         return qt, confidence, mu, logvar
 
     def forward_test(self, pc, grasp):
-        # pc = pc.repeat(2, 1, 1)
-        input_features = torch.cat(
-            (pc, grasp.unsqueeze(1).expand(-1, pc.shape[1], -1)),
-            -1).transpose(-1, 1).contiguous()
-        z = self.encode(pc, input_features)
-        mu, _ = self.bottleneck(z)
-        qt, confidence = self.decode(pc, mu, self.dual_grasp)
+        if self.dual_grasp:
+            grasp = grasp.reshape(len(grasp[0]),2, 16)
+            left_grasp = grasp[:, 0, :]
+            right_grasp = grasp[:, 1, :]
+            input_features_left = torch.cat(
+                (pc, left_grasp.unsqueeze(1).expand(-1, pc.shape[1], -1)),
+                -1).transpose(-1, 1).contiguous()
+            input_features_right = torch.cat(
+                (pc, right_grasp.unsqueeze(1).expand(-1, pc.shape[1], -1)),
+                -1).transpose(-1, 1).contiguous()
+            #reshape the input features to batch x 2 x 19 x 1024
+            input_features = torch.stack((input_features_left, input_features_right), dim = 1)
+            z = self.encode(pc, input_features)
+            mu_left, logvar_left = self.bottleneck(z[0])
+            mu_right, logvar_right = self.bottleneck(z[1])
+            z_left = self.reparameterize(mu_left, logvar_left)
+            z_right = self.reparameterize(mu_right, logvar_right)
+            z = (z_left, z_right)
+            qt, confidence = self.decode(pc, z, self.dual_grasp)
+        else:
+            input_features = torch.cat(
+                (pc, grasp.unsqueeze(1).expand(-1, pc.shape[1], -1)),
+                -1).transpose(-1, 1).contiguous()
+            z = self.encode(pc, input_features)
+            mu, _ = self.bottleneck(z)
+            qt, confidence = self.decode(pc, mu, self.dual_grasp)
         return qt, confidence
 
     def sample_latent(self, batch_size):
@@ -470,4 +544,3 @@ def base_network(pointnet_radius, pointnet_nclusters, scale, in_features):
                              nn.Linear(1024 * scale, 1024 * scale),
                              nn.BatchNorm1d(1024 * scale), nn.ReLU(True))
     return nn.ModuleList([sa_modules, fc_layer])
-

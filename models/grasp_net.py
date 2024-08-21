@@ -55,11 +55,14 @@ class GraspNetModel:
         input_pcs = torch.from_numpy(data['pc']).contiguous()
         self.pc_for_visualization = input_pcs
         input_grasps = torch.from_numpy(data['grasp_rt']).float()
+        #check if the input grasps and pc are not nan
+        if torch.isnan(input_pcs).any() or torch.isnan(input_grasps).any():
+            print("Input pc or grasps are nan")
         self.og_grasps = data['og_grasps']
-
+        # print("input_grasps", input_grasps.shape)
         target_cps = data['target_cps'].reshape(-1, 6, 3)
         # print(len(self.og_grasps))
-        # #reshape from 32 x 2 x 4 x 4 to 64 x 4 x 4
+        # reshape from 32 x 2 x 4 x 4 to 64 x 4 x 4
         # if len(self.og_grasps.shape) == 4:
         #     self.og_grasps = self.og_grasps.reshape(-1, 4, 4)
         # mlab.figure(bgcolor=(1, 1, 1))
@@ -118,21 +121,6 @@ class GraspNetModel:
         return torch.sigmoid(success)
 
     def forward(self):
-        # print(self.pcs.shape, self.grasps.shape, self.is_train)
-        # mlab.figure(bgcolor=(1, 1, 1))
-        # # self.og_grasps = self.og_grasps.cpu().detach().numpy()
-        # # self.og_grasps = self.og_grasps.reshape(-1, 6, 3)
-        # # print(targets.shape)
-        # pc = self.pcs[0].cpu().detach().numpy()
-        # # print(self.og_grasps.shape)
-        # # print(pc.shape, self.og_grasps.shape)
-        # draw_scene(
-        #         pc,
-        #         grasps=self.og_grasps,
-        #         # target_cps=targets,
-        #     )
-        # mlab.show()
-        # print(xd)
         return self.net(self.pcs, self.grasps, train=self.is_train)
 
     def backward(self, out):
@@ -148,7 +136,19 @@ class GraspNetModel:
                 device=self.device,
                 dual_grasp=self.dual_grasp)
             self.kl_loss = self.opt.kl_loss_weight * self.criterion[0](
-                mu, logvar, device=self.device)
+                mu, logvar, device=self.device, dual_grasp=self.dual_grasp)
+            # print(self.reconstruction_loss, self.confidence_loss, self.kl_loss)
+            #catch if any of the losses are nan
+            # print(predicted_cp[:,:,0].min(), predicted_cp[:,:,0].max())
+            # print(predicted_cp[:,1,:,0].min(), predicted_cp[:,1,:,0].max())
+            # print(predicted_cp[:,:,1].min(), predicted_cp[:,:,1].max())
+            # print(predicted_cp[:,1,:,1].min(), predicted_cp[:,1,:,1].max())
+            # print(predicted_cp[:,:,2].min(), predicted_cp[:,:,2].max())
+            # print(predicted_cp[:,1,:,2].min(), predicted_cp[:,1,:,2].max())
+            # print()
+            if torch.isnan(self.reconstruction_loss) or torch.isnan(self.confidence_loss) or torch.isnan(self.kl_loss):
+                print("Loss is nan")
+                print("Reconstruction Loss: ", self.reconstruction_loss, "Confidence Loss: ", self.confidence_loss, "KL Loss: ", self.kl_loss)
             self.loss = self.kl_loss + self.reconstruction_loss + self.confidence_loss
         elif self.opt.arch == 'gan':
             predicted_cp, confidence = out
@@ -173,8 +173,8 @@ class GraspNetModel:
         
 
         ###CODE SNIPPET TO VISUALIZE THE PREDICTED CONTROL POINTS
-        # # if len(self.og_grasps.shape) == 4:
-        # #     self.og_grasps = self.og_grasps.reshape(-1, 4, 4)
+        # if len(self.og_grasps.shape) == 4:
+        #     self.og_grasps = self.og_grasps.reshape(-1, 4, 4)
         # if len(predicted_cp.shape) == 4:
         #     predicted_cp = predicted_cp.reshape(-1, 6, 3)
         # # print(self.og_grasps.shape, predicted_cp.shape)
