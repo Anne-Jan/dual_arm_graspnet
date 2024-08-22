@@ -313,17 +313,17 @@ def get_control_point_tensor(batch_size, use_torch=True, device="cpu", dual_gras
                              [batch_size, 1, 1])
     
     ###Code snippet to modify the grasp_pc to match the gripper model
-    # for control_point in control_points:
-    #     point1 = control_point[2, :]
-    #     point2 = control_point[3, :]
-    #     point1[2] = 0.059
-    #     point2[2] = 0.059
-    #     # mid_point = 0.5 * (control_point[2, :] + control_point[3, :])
-    #     mid_point = 0.5 * (point1 + point2)
-    #     for point in control_point:
-    #         point[0] -= mid_point[0]
-    #         point[1] -= mid_point[1]
-    #         point[2] -= mid_point[2]
+    for control_point in control_points:
+        point1 = control_point[2, :]
+        point2 = control_point[3, :]
+        point1[2] = 0.059
+        point2[2] = 0.059
+        # mid_point = 0.5 * (control_point[2, :] + control_point[3, :])
+        mid_point = 0.5 * (point1 + point2)
+        for point in control_point:
+            point[0] -= mid_point[0]
+            point[1] -= mid_point[1]
+            point[2] -= mid_point[2]
     if dual_grasp == True:
         #change the rotation component of the control points to 0
         #Make it N by 2 by 6 by 3, one control point tensor for each grasp in the grasp pair

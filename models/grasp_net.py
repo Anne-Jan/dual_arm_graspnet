@@ -64,6 +64,7 @@ class GraspNetModel:
         # print(len(self.og_grasps))
         # reshape from 32 x 2 x 4 x 4 to 64 x 4 x 4
         # if len(self.og_grasps.shape) == 4:
+        ###CODE SNIPPET TO VISUALIZE THE INPUT GRASPS
         #     self.og_grasps = self.og_grasps.reshape(-1, 4, 4)
         # mlab.figure(bgcolor=(1, 1, 1))
         # draw_scene(
@@ -73,7 +74,8 @@ class GraspNetModel:
         #     )
         # mlab.show()
         # print(xd)
-
+        ###END OF CODE SNIPPET
+        
         ###CODE SNIPPET TO VISUALIZE GOOD AND BAD GRASPS FOR THE EVALUATOR
         # self.og_grasps = data['good_og_grasps']
         # print(len(self.og_grasps))

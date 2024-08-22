@@ -316,15 +316,32 @@ class BaseDataset(data.Dataset):
 
             output_grasps = np.asarray(output_grasps)
             output_qualities = np.asarray(output_qualities)
-
+            return output_grasps, output_qualities
+            
+        def sample_grasps(grasps, qualities, num_samples):
+            #from all the grasps, randomly sample num_samples grasps, all unique
+            output_grasps = []
+            output_qualities = []
+            indexes = np.random.choice(range(len(grasps)), num_samples, replace=False)
+            output_grasps = grasps[indexes]
+            output_qualities = qualities[indexes]
+            #Add a dimension to the grasps and qualities
+            output_grasps = np.expand_dims(output_grasps, axis=1)
+            output_qualities = np.expand_dims(output_qualities, axis=1)
             return output_grasps, output_qualities
         if not return_all_grasps:
-            positive_grasps, positive_qualities = cluster_grasps(
-                positive_grasps, positive_qualities)
-            negative_grasps, negative_qualities = cluster_grasps(
-                negative_grasps, negative_qualities)
-            num_positive_grasps = np.sum([p.shape[0] for p in positive_grasps])
-            num_negative_grasps = np.sum([p.shape[0] for p in negative_grasps])
+            if(self.opt.dual_grasp):
+                positive_grasps, positive_qualities = sample_grasps(
+                    positive_grasps, positive_qualities, num_samples=num_clusters)
+                negative_grasps, negative_qualities = sample_grasps(
+                    negative_grasps, negative_qualities, num_samples=num_clusters)
+            else:
+                positive_grasps, positive_qualities = cluster_grasps(
+                    positive_grasps, positive_qualities)
+                negative_grasps, negative_qualities = cluster_grasps(
+                    negative_grasps, negative_qualities)
+                num_positive_grasps = np.sum([p.shape[0] for p in positive_grasps])
+                num_negative_grasps = np.sum([p.shape[0] for p in negative_grasps])
         else:            
             num_positive_grasps = positive_grasps.shape[0]
             num_negative_grasps = negative_grasps.shape[0]
