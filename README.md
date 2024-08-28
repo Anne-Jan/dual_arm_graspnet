@@ -138,5 +138,68 @@ The dataloader part is handled by the files `data/base_dataset.py` (here the sca
 The file `utils/utils.py` contains multiple functionts, most importantly the `get_control_point_tensor()` and `transform_control_points()` which transforms the sampled quaternions and translations into control points.
 
 
+## Running in Habrok
+
+Use the following command from your linux machine to ssh into Habrok GPU cluster
+
+`ssh -X username@gpu1.hpc.rug.nl`
+
+replace username with your student number (make sure you have an account). You login with your pass and third-party authenticator.
+
+### Installation
+Once in Habrok, navigate to the projects filesystem where you have more space
+
+`cd /projects/sXXXXXX`
+
+In my account I can simply `conda activate` every time I login, don't remember if I had to initialize it. If you can't just conda activate, you probably have to load the Anaconda module from Habrok module system, e.g.:
+
+`module load Anaconda3/2022.05`
+
+After you have conda available, you are ready to start installing.
+
+```
+conda create --name DA2graspnet python=3.8
+conda activate DA2graspnet
+conda install pytorch==1.13.0 torchvision==0.14.0 torchaudio==0.13.0 pytorch-cuda=11.7 -c pytorch -c nvidia
+pip install --upgrade pip setuptools wheel
+module load CUDA/11.7.0
+git clone https://github.com/Anne-Jan/graspnetbackup.git
+cd graspnetbackup
+git clone https://github.com/erikwijmans/Pointnet2_PyTorch
+cd Pointnet2_PyTorch && pip install -r requirements.txt
+cd ..
+```
+
+Manually remove mayavi from requirements.txt and change `matplotlib` version to `3.1.3`. We will install latest mayavi version separately although not needed, just such that it doesnt complain during imports.
+
+```
+pip install -r requirements.txt
+pip install mayavi #(no actual need just to not complain)
+pip install configobj
+```
+
+### Running the demo
+Since we are using headless server we cannot use mayavi. I have modified the demo to create the visualization in matplotlib and save it as a png file inside demo. Check `demo.main_headless.py` and `utils.visualization_utils_headless.py`. After you download weights and place in `checkpoints/` as in the original instructions, simply run:
+`python -m demo.main_headless`
+
+### Running training jobs
+To submit a training job in Habrok, you must create a script e.g. `train_habrok_gpu.sh` that generally looks like this:
+
+```
+#!/bin/bash
+#SBATCH --job-name="da2graspnet-train-example"
+#SBATCH --time=24:00:00
+#SBATCH --partition=gpu
+#SBATCH --gpus-per-node=1
+
+cd /projects/sXXXXXX
+conda activate DA2graspnet
+module load CUDA/11.7.0
+module load Python
+
+echo '======example usage======='
+python train.py  --arch vae  --dataset_root_folder shapenet_models/da2_dataset/  --num_grasps_per_object 32 --niter 1000 --niter_decay 10000 --save_epoch_freq 50 --save_latest_freq 250 --run_test_freq 10 --dual_grasp True
+```
+maybe some params need refinement.
 
 
