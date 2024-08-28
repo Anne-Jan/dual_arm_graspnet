@@ -25,7 +25,7 @@ class GraspEvaluatorData(BaseDataset):
         opt.input_nc = self.ninput_channels
         self.ratio_positive = self.set_ratios(ratio_positive)
         self.ratio_hardnegative = self.set_ratios(ratio_hardnegative)
-        # print('ratio_positive', self.ratio_positive, 'ratio_hardnegative', self.ratio_hardnegative)
+        print('ratio_positive', self.ratio_positive, 'ratio_hardnegative', self.ratio_hardnegative)
         self.ratio_hardnegative = 1.0
         # self.collision_hard_neg_num_perturbations = 5
 
