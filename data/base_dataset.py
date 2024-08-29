@@ -192,6 +192,7 @@ class BaseDataset(data.Dataset):
 
         object_model.vertices -= object_mean
         grasps = np.asarray(json_dict['transforms'])
+        # print("grasps from file", grasps.shape)
         if len(grasps.shape) == 4:
             #shift all grasps slightly along the z-axis
             # grasps[:, :, :3, 3] += np.array([0, 0, 0.05])
@@ -270,8 +271,14 @@ class BaseDataset(data.Dataset):
         if len(grasps.shape) == 4:
             successful_mask = np.where(metric_scores >= 2.4)
             negative_mask = np.where(metric_scores < 2.4)
-            positive_grasp_indexes = successful_mask[0]
-            negative_grasp_indexes = negative_mask[0]
+            if len(successful_mask[0]) != len(negative_mask[0]):
+                #no equal number of positive and negative grasps
+                #take the first half of the grasps as the positive grasps and the second half as the negative grasps
+                positive_grasp_indexes = np.array(range(int(grasps.shape[0]/2), grasps.shape[0]))
+                negative_grasp_indexes = np.array(range(int(grasps.shape[0]/2)))
+            else:
+                positive_grasp_indexes = successful_mask[0]
+                negative_grasp_indexes = negative_mask[0]
         else:
             successful_mask = np.logical_and(flex_qualities > 0.01,
                                             heuristic_qualities > 0.01) 
@@ -284,6 +291,7 @@ class BaseDataset(data.Dataset):
             negative_grasps = grasps[negative_grasp_indexes, :, :, :]
             positive_qualities = metric_scores[positive_grasp_indexes]
             negative_qualities = metric_scores[negative_grasp_indexes]
+            # print("positive grasps", positive_grasps.shape, negative_grasps.shape)
         else:
             positive_grasps = grasps[positive_grasp_indexes, :, :]
             negative_grasps = grasps[negative_grasp_indexes, :, :]
