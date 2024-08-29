@@ -188,18 +188,33 @@ To submit a training job in Habrok, you must create a script e.g. `train_habrok_
 ```
 #!/bin/bash
 #SBATCH --job-name="da2graspnet-train-example"
-#SBATCH --time=24:00:00
+#SBATCH --time=3-00:00:00
 #SBATCH --partition=gpu
-#SBATCH --gpus-per-node=1
+#SBATCH --gpus-per-node=v100:1
+#SBATCH --output=job-%j.log
 
 cd /projects/sXXXXXX
 conda activate DA2graspnet
 module load CUDA/11.7.0
-module load Python
 
 echo '======example usage======='
-python train.py  --arch vae  --dataset_root_folder shapenet_models/da2_dataset/  --num_grasps_per_object 32 --niter 1000 --niter_decay 10000 --save_epoch_freq 50 --save_latest_freq 250 --run_test_freq 10 --dual_grasp True
+python -m demo.main_headless
 ```
-maybe some params need refinement.
+This will allocate one v100 gpu for 3 hours. Check other available slurm params [here](https://wiki.hpc.rug.nl/habrok/job_management/scheduling_system)
+
+Submit your job with:
+
+`sbatch train_habrok_gpu.sh`
+
+check your job status with:
+
+`squeue -u sXXXXXX`
+
+cancel a job with:
+
+`scancel <JOBID>`
+
+where you can read your `<JOBID>` from the command avove.
+
 
 
