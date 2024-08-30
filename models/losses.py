@@ -157,7 +157,6 @@ def min_distance_loss(pred_control_points,
     """
     pred_shape = pred_control_points.shape
     gt_shape = gt_control_points.shape
-    print(pred_shape)
     #calc the loss for dual grasp
     if len(pred_shape) == 4:
         #split the tensor in 32,6,3 from 32,2,6,3

@@ -12,3 +12,4 @@ PyYAML==5.4
 tensorboardX==2.0
 python-fcl==0.7.0.5
 rtree
+protobuf==3.20.3
