@@ -78,7 +78,7 @@ def define_classifier(opt, gpu_ids, arch, init_type, init_gain, device):
                               opt.pointnet_nclusters, opt.latent_size, device, opt.dual_grasp)
     elif arch == 'gan':
         net = GraspSamplerGAN(opt.model_scale, opt.pointnet_radius,
-                              opt.pointnet_nclusters, opt.latent_size, device)
+                              opt.pointnet_nclusters, opt.latent_size, device, opt.dual_grasp)
     elif arch == 'evaluator':
         net = GraspEvaluator(opt.model_scale, opt.pointnet_radius,
                              opt.pointnet_nclusters, device)
@@ -327,10 +327,11 @@ class GraspSamplerGAN(GraspSampler):
                  pointnet_radius,
                  pointnet_nclusters,
                  latent_size=2,
-                 device="cpu"):
+                 device="cpu",
+                 dual_grasp=False):
         super(GraspSamplerGAN, self).__init__(latent_size, device)
         self.create_decoder(model_scale, pointnet_radius, pointnet_nclusters,
-                            latent_size + 3)
+                            latent_size + 3, dual_grasp=dual_grasp)
 
     def sample_latent(self, batch_size):
         return torch.rand(batch_size, self.latent_size).to(self.device)

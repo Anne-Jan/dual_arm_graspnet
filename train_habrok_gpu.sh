@@ -5,9 +5,9 @@
 #SBATCH --gpus-per-node=v100:1
 #SBATCH --output=job-%j.log
 
-cd /home1/p300488/graspnetbackup
+cd /home3/s3399834/graspnetbackup
 module load CUDA/11.7.0
-module load Anaconda3 
+module load Anaconda3/2022.05
 conda activate
 conda create --name tmptmp python=3.8
 conda activate tmptmp
@@ -22,7 +22,7 @@ echo '=====testing gpu====='
 python -c "import torch; x=torch.tensor(3, device='cuda'); print(x.device); print(torch.__version__);import trimesh"
 
 echo '=====training======='
-python3 train.py  --arch vae  --dataset_root_folder shapenet_models/da2_dataset/  --num_grasps_per_object 32 --niter 1000 --niter_decay 10000 --save_epoch_freq 50 --save_latest_freq 250 --run_test_freq 10 --dual_grasp True
+python3 train.py  --arch evaluator  --dataset_root_folder shapenet_models/da2_dataset/  --num_grasps_per_object 192 --niter 1000 --niter_decay 10000 --save_epoch_freq 50 --save_latest_freq 250 --run_test_freq 10 --dual_grasp True
 
 conda deactivate
 conda remove --name tmptmp --all
