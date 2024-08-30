@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name="setup-example"
-#SBATCH --time=0-00:15:00
+#SBATCH --time=0-01:00:00
 #SBATCH --partition=gpu
 #SBATCH --gpus-per-node=v100:1
 #SBATCH --output=job-%j.log
@@ -22,7 +22,7 @@ echo '=====testing gpu====='
 python -c "import torch; x=torch.tensor(3, device='cuda'); print(x.device); print(torch.__version__);import trimesh"
 
 echo '=====training======='
-python3 train.py  --arch evaluator  --dataset_root_folder shapenet_models/da2_dataset/  --num_grasps_per_object 192 --niter 1000 --niter_decay 10000 --save_epoch_freq 50 --save_latest_freq 250 --run_test_freq 10 --dual_grasp True
+python3 train.py  --arch evaluator  --dataset_root_folder shapenet_models/da2_dataset/  --num_grasps_per_object 96 --niter 1000 --niter_decay 10000 --save_epoch_freq 50 --save_latest_freq 250 --run_test_freq 10 --dual_grasp True
 
 conda deactivate
 conda remove --name tmptmp --all
