@@ -328,6 +328,7 @@ class BaseDataset(data.Dataset):
             
         def sample_grasps(grasps, qualities, num_samples):
             #from all the grasps, randomly sample num_samples grasps, all unique
+            # print("sampling grasps")
             output_grasps = []
             output_qualities = []
             indexes = np.random.choice(range(len(grasps)), num_samples, replace=False)

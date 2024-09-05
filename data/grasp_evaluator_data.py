@@ -23,11 +23,14 @@ class GraspEvaluatorData(BaseDataset):
         self.collision_hard_neg_queue = {}
         #self.get_mean_std()
         opt.input_nc = self.ninput_channels
+        ratio_positive = 0.5
+        # ratio_hardnegative = 0.5
         self.ratio_positive = self.set_ratios(ratio_positive)
         self.ratio_hardnegative = self.set_ratios(ratio_hardnegative)
-        print('ratio_positive', self.ratio_positive, 'ratio_hardnegative', self.ratio_hardnegative)
+        # print('ratio_positive', self.ratio_positive, 'ratio_hardnegative', self.ratio_hardnegative)
         self.ratio_hardnegative = 1.0
         # self.collision_hard_neg_num_perturbations = 5
+        # print(self.collision_hard_neg_num_perturbations)
 
     def set_ratios(self, ratio):
         if int(self.opt.num_grasps_per_object * ratio) == 0:
@@ -64,6 +67,7 @@ class GraspEvaluatorData(BaseDataset):
         else:
             meta['grasp_rt'] = gt_control_points[:, :, :3]
         meta['labels'] = data[2]
+        # print(meta['labels'])
         meta['quality'] = data[3]
         meta['pc_pose'] = data[4]
         meta['cad_path'] = data[5]
@@ -71,9 +75,13 @@ class GraspEvaluatorData(BaseDataset):
         # meta['og_grasps'] = data[7]
         # #First ones that are good
         # print(len(data[1]   ))
-        meta['good_og_grasps'] = data[1][:9,:,:,:]
+        # print(data[2])
+        meta['good_og_grasps'] = data[1][:16,:,:,:]
         #Later ones that are bad, sometimes very bad
-        meta['bad_og_grasps'] = data[1][9:,:,:,:]
+        meta['bad_og_grasps'] = data[1][16:,:,:,:]
+        #print num of unique grasps
+        # print("num_unique_pos_grasps", len(np.unique(meta['good_og_grasps'], axis=0)))
+        # print("num_unique_neg_grasps", len(np.unique(meta['bad_og_grasps'], axis=0)))
         meta['og_grasps'] = data[1]
         # reshape to 64 x 4 x 4 from 32 x 1 x 2 x 4 x 4        
         if len(meta['og_grasps'].shape) == 5:
@@ -124,7 +132,7 @@ class GraspEvaluatorData(BaseDataset):
                     self.collision_hard_neg_min_rotation,
                     self.collision_hard_neg_max_rotation,
                 )
-
+        
         if verify_grasps:
             collisions, heuristic_qualities = utils.evaluate_grasps(
                 output_grasps, obj_mesh)
@@ -251,6 +259,12 @@ class GraspEvaluatorData(BaseDataset):
             output_labels.append(1)
             positive_grasps.append(selected_grasp)
             # print(self.collision_hard_neg_num_perturbations)
+        
+        for negative_cluster in negative_clusters:
+            selected_grasp = neg_grasps[negative_cluster[0]][
+                negative_cluster[1]]
+            selected_quality = neg_qualities[negative_cluster[0]][
+                negative_cluster[1]]
             hard_neg_candidates += utils.perturb_grasp(
                 selected_grasp,
                 self.collision_hard_neg_num_perturbations,
@@ -259,7 +273,7 @@ class GraspEvaluatorData(BaseDataset):
                 self.collision_hard_neg_min_rotation,
                 self.collision_hard_neg_max_rotation,
             )
-
+        # print("hard neg",len(hard_neg_candidates))
         if verify_grasps:
             collisions, heuristic_qualities = utils.evaluate_grasps(
                 output_grasps, obj_mesh)
@@ -300,8 +314,10 @@ class GraspEvaluatorData(BaseDataset):
                         (selected_grasp, selected_quality))
         negative_grasps = []
         for _ in range(num_negative):
-            #print('qsize = ', self._collision_hard_neg_queue[file_path].qsize())
+            # print('qsize = ', self._collision_hard_neg_queue[path].qsize())
             grasp, quality = self.collision_hard_neg_queue[path].get()
+            grasp = hard_neg_candidates[_]
+            # print(grasp)
             output_grasps.append(grasp)
             output_qualities.append(quality)
             output_labels.append(0)

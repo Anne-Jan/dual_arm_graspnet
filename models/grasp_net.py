@@ -5,7 +5,6 @@ import utils.utils as utils
 from utils.visualization_utils import *
 
 
-
 class GraspNetModel:
     """ Class for training Model weights
 
@@ -77,9 +76,8 @@ class GraspNetModel:
         ###END OF CODE SNIPPET
 
         ###CODE SNIPPET TO VISUALIZE GOOD AND BAD GRASPS FOR THE EVALUATOR
-        # self.og_grasps = data['good_og_grasps']
-        # print(len(self.og_grasps))
-        # #reshape from 32 x 2 x 4 x 4 to 64 x 4 x 4
+        self.og_grasps = data['good_og_grasps']
+        #reshape from 32 x 2 x 4 x 4 to 64 x 4 x 4
         # if len(self.og_grasps.shape) == 4:
         #     self.og_grasps = self.og_grasps.reshape(-1, 4, 4)
         # mlab.figure(bgcolor=(1, 1, 1))
@@ -92,7 +90,7 @@ class GraspNetModel:
         # mlab.clf()
         # mlab.figure(bgcolor=(1, 1, 1))
         # self.og_grasps = data['bad_og_grasps']
-        # print(self.og_grasps.shape)
+        # # print(self.og_grasps.shape)
         # #reshape from 32 x 2 x 4 x 4 to 64 x 4 x 4
         # if len(self.og_grasps.shape) == 4:
         #     self.og_grasps = self.og_grasps.reshape(-1, 4, 4)
@@ -120,6 +118,13 @@ class GraspNetModel:
 
     def evaluate_grasps(self, pcs, gripper_pcs):
         success, _ = self.net.module(pcs, gripper_pcs)
+        success = torch.tensor_split(success, 2, dim=0)
+        
+        success = success[0].add(success[1])
+        #Devide all values by 2
+        success = success / 2.0
+
+        # print(success.shape)
         return torch.sigmoid(success)
 
     def forward(self):
@@ -273,16 +278,19 @@ class GraspNetModel:
                     device=self.device)
                 return reconstruction_loss, 1
             else:
-                if self.dual_grasp:
-                    predicted = torch.sigmoid(prediction).squeeze()
-                    predicted = torch.tensor_split(predicted, 2, dim=0)
+                # if self.dual_grasp:
+                #     predicted = torch.sigmoid(prediction).squeeze()
+                #     predicted = torch.tensor_split(predicted, 2, dim=0)
     
-                    predicted = predicted [0].add(predicted [1])
-                    #Devide all values by 2
-                    predicted  = predicted  / 2.0
-                    predicted = torch.round(predicted)
-                else: 
-                    predicted = torch.round(torch.sigmoid(prediction)).squeeze()
-               
+                #     predicted = predicted [0].add(predicted [1])
+                #     #Devide all values by 2
+                #     predicted  = predicted  / 2.0
+                #     predicted = torch.round(predicted)
+                # else: 
+                # print("predicted unrounded", torch.sigmoid(prediction).squeeze())
+
+                predicted = torch.round(torch.sigmoid(prediction)).squeeze()
+                # print("predicted rounded", predicted)
+                # print("targets", self.targets)
                 correct = (predicted == self.targets).sum().item()
                 return correct, len(self.targets)

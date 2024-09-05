@@ -344,6 +344,19 @@ class GraspSamplerGAN(GraspSampler):
         if z is None:
             z = self.sample_latent(pc.shape[0])
         qt, confidence = self.decode(pc, z)
+        # predicted_cp = utils.transform_control_points(
+        #         qt, qt.shape[0], device=self.device, dual_grasp = self.dual_grasp)
+        # if len(predicted_cp.shape) == 4:
+        #     predicted_cp = predicted_cp.reshape(-1, 6, 3)
+
+        # mlab.figure(bgcolor=(1, 1, 1))
+        # draw_scene(
+        #         pc[0].cpu().detach().numpy(),
+        #         # grasps=self.og_grasps,
+        #         target_cps=predicted_cp,
+        #     )
+        # mlab.show()
+        # print(xd)
         return qt, confidence, z.squeeze()
 
     def generate_dense_latents(self, resolution):
@@ -376,8 +389,10 @@ class GraspEvaluator(nn.Module):
         self.confidence = nn.Linear(1024 * model_scale, 1)
 
     def evaluate(self, xyz, xyz_features):
+        # print("test",xyz.shape, xyz_features.shape)
         for module in self.evaluator[0]:
             xyz, xyz_features = module(xyz, xyz_features)
+        # print(self.evaluator[1](xyz_features.squeeze(-1)).shape)
         return self.evaluator[1](xyz_features.squeeze(-1))
 
     def forward(self, pc, gripper_pc, train=True):
@@ -395,37 +410,54 @@ class GraspEvaluator(nn.Module):
         pc_shape = pc.shape
         gripper_shape = gripper_pc.shape
         if len(gripper_pc.shape) == 4:
+            #Code snippet that creates seperate combined point clouds for each gripper
             #make two gripper point clouds of size (batch_size, 6, 3)
+            # pc1 = pc.clone()
+            # pc2 = pc.clone()
+            # gripper_pc1 = gripper_pc[:, 0, :, :]
+            # gripper_pc2 = gripper_pc[:, 1, :, :]
+            # print(gripper_pc1.shape, gripper_pc2.shape)
+            # l0_xyz1 = torch.cat((pc1, gripper_pc1), 1)
+            # print(l0_xyz1.shape)
+            # l0_xyz2 = torch.cat((pc2, gripper_pc2), 1)
+            # labels1 = [
+            #     torch.ones(pc.shape[1], 1, dtype=torch.float32),
+            #     torch.zeros(gripper_pc1.shape[1], 1, dtype=torch.float32)
+            # ]
+            # labels1 = torch.cat(labels1, 0)
+            # labels1.unsqueeze_(0)
+            # labels1 = labels1.repeat(pc_shape[0], 1, 1)
+            # labels2 = [
+            #     torch.ones(pc.shape[1], 1, dtype=torch.float32),
+            #     torch.zeros(gripper_pc2.shape[1], 1, dtype=torch.float32)
+            # ]
+            # labels2 = torch.cat(labels2, 0)
+            # labels2.unsqueeze_(0)
+            # labels2 = labels2.repeat(pc_shape[0], 1, 1)
+            # l0_points1 = torch.cat([l0_xyz1, labels1.to(self.device)],
+            #                        -1).transpose(-1, 1)
+            # l0_points2 = torch.cat([l0_xyz2, labels2.to(self.device)],
+            #                           -1).transpose(-1, 1)
+            # print( torch.cat((l0_xyz1, l0_xyz2), 0).shape, torch.cat((l0_points1, l0_points2), 0).shape)
+            # return torch.cat((l0_xyz1, l0_xyz2), 0), torch.cat((l0_points1, l0_points2), 0)
+            #End of code snippet
+            #Code snippet that creates one point cloud with both grippers
             gripper_pc1 = gripper_pc[:, 0, :, :]
             gripper_pc2 = gripper_pc[:, 1, :, :]
-            # print(gripper_pc1.shape, gripper_pc2.shape)
-            l0_xyz1 = torch.cat((pc, gripper_pc1), 1)
-            l0_xyz2 = torch.cat((pc, gripper_pc2), 1)
-            labels1 = [
+            l0_xyz = torch.cat((pc, gripper_pc1, gripper_pc2), 1)
+            # print(l0_xyz.shape)
+            labels = [
                 torch.ones(pc.shape[1], 1, dtype=torch.float32),
-                torch.zeros(gripper_pc1.shape[1], 1, dtype=torch.float32)
-            ]
-            labels1 = torch.cat(labels1, 0)
-            labels1.unsqueeze_(0)
-            labels1 = labels1.repeat(pc_shape[0], 1, 1)
-            labels2 = [
-                torch.ones(pc.shape[1], 1, dtype=torch.float32),
+                torch.zeros(gripper_pc1.shape[1], 1, dtype=torch.float32),
                 torch.zeros(gripper_pc2.shape[1], 1, dtype=torch.float32)
             ]
-            labels2 = torch.cat(labels2, 0)
-            labels2.unsqueeze_(0)
-            labels2 = labels2.repeat(pc_shape[0], 1, 1)
-            l0_points1 = torch.cat([l0_xyz1, labels1.to(self.device)],
-                                   -1).transpose(-1, 1)
-            l0_points2 = torch.cat([l0_xyz2, labels2.to(self.device)],
-                                      -1).transpose(-1, 1)
-            return torch.cat((l0_xyz1, l0_xyz2), 0), torch.cat((l0_points1, l0_points2), 0)
-            #concatenate to make it size batch x 2 x n x n instead of 2 variables of size batch x n x n
-            l0_xyz = torch.stack((l0_xyz1, l0_xyz2), dim = 1)
-            l0_points = torch.stack((l0_points1, l0_points2), dim = 1)
-            print(l0_xyz.shape, l0_points.shape)
-            # return l0_xyz1, l0_points1, l0_xyz2, l0_points2
+            labels = torch.cat(labels, 0)
+            labels.unsqueeze_(0)
+            labels = labels.repeat(pc_shape[0], 1, 1)
+            l0_points = torch.cat([l0_xyz, labels.to(self.device)],
+                                  -1).transpose(-1, 1)
             return l0_xyz, l0_points
+
 
         
 

@@ -51,7 +51,7 @@ class GraspEstimator:
         self.grasp_sampler = create_model(grasp_sampler_opt)
 
     def keep_inliers(self, grasps, confidences, z, pc, inlier_indices_list):
-        print("before", grasps[0].shape)
+        # print("before", grasps[0].shape)
         for i, inlier_indices in enumerate(inlier_indices_list):
             
             grasps[i] = grasps[i][inlier_indices]
@@ -59,7 +59,7 @@ class GraspEstimator:
             # print(len(confidences))
             z[i] = z[i][inlier_indices]
             pc[i] = pc[i][inlier_indices]
-        print("after", grasps[0].shape)
+        # print("after", grasps[0].shape)
 
     def generate_and_refine_grasps(
         self,
@@ -73,13 +73,13 @@ class GraspEstimator:
                                                         threshold=1.0,
                                                         device=self.device)
         # print(np.array(grasps_list).shape, np.array(confidence_list).shape, np.array(z_list).shape, np.array(pc_list).shape, np.array(inlier_indices).shape)
-        # self.keep_inliers(grasps_list, confidence_list, z_list, pc_list,
-                        #   inlier_indices)
+        self.keep_inliers(grasps_list, confidence_list, z_list, pc_list,
+                          inlier_indices)
         improved_eulers, improved_ts, improved_success = [], [], []
         for pc, grasps in zip(pc_list, grasps_list):
             # print(grasps.shape)
             out = self.refine_grasps(pc, grasps, self.refine_method,
-                                     self.num_refine_steps)
+                                     self.num_refine_steps, og_pc=pc[0])
             improved_eulers.append(out[0])
             improved_ts.append(out[1])
             improved_success.append(out[2])
@@ -130,22 +130,44 @@ class GraspEstimator:
         else:
             for pc in pcs:
                 grasps, confidence, z = self.grasp_sampler.generate_grasps(pc)
+                # print(grasps.shape)
                 all_grasps.append(grasps)
                 all_confidence.append(confidence)
                 all_z.append(z)
+                # print("grasps",all_grasps[0].shape)
         return all_grasps, all_confidence, all_z
 
-    def refine_grasps(self, pc, grasps, refine_method, num_refine_steps=10):
-
+    def refine_grasps(self, pc, grasps, refine_method, num_refine_steps=10, og_pc=None):
         grasp_eulers, grasp_translations = utils.convert_qt_to_rt(grasps)
         if refine_method == "gradient":
             improve_fun = self.improve_grasps_gradient_based
+            # if len(grasp_eulers[1]) == 6:
+            #     grasp_eulers1 = grasp_eulers[:, :3]
+            #     grasp_translations1 = grasp_translations[:, :3]
+            #     grasp_eulers2 = grasp_eulers[:, 3:]
+            #     grasp_translations2 = grasp_translations[:, 3:]
+            #     grasp_eulers1 = torch.autograd.Variable(grasp_eulers1.to(
+            #         self.device),
+            #                                             requires_grad=True)
+            #     grasp_translations1 = torch.autograd.Variable(
+            #         grasp_translations1.to(self.device),
+            #         requires_grad=True)
+            #     grasp_eulers2 = torch.autograd.Variable(grasp_eulers2.to(
+            #         self.device),
+            #                                             requires_grad=True)
+            #     grasp_translations2 = torch.autograd.Variable(
+            #         grasp_translations2.to(self.device),
+            #         requires_grad=True)
+            #     grasp_eulers = torch.cat((grasp_eulers1, grasp_eulers2), -1)
+            #     grasp_translations = torch.cat(
+            #         (grasp_translations1, grasp_translations2), -1)
+            # else:
             grasp_eulers = torch.autograd.Variable(grasp_eulers.to(
                 self.device),
-                                                   requires_grad=True)
+                                                requires_grad=True)
             grasp_translations = torch.autograd.Variable(grasp_translations.to(
                 self.device),
-                                                         requires_grad=True)
+                                                    requires_grad=True)
 
         else:
             improve_fun = self.improve_grasps_sampling_based
@@ -159,14 +181,14 @@ class GraspEstimator:
         for i in range(num_refine_steps):
             success_prob, last_success = improve_fun(pc, grasp_eulers,
                                                      grasp_translations,
-                                                     last_success)
+                                                     last_success, og_pc)
             improved_success.append(success_prob.cpu().data.numpy())
             improved_eulers.append(grasp_eulers.cpu().data.numpy())
             improved_ts.append(grasp_translations.cpu().data.numpy())
 
         # we need to run the success on the final improved grasps
         grasp_pcs = utils.control_points_from_rot_and_trans(
-            grasp_eulers, grasp_translations, self.device)
+            grasp_eulers, grasp_translations, self.device,og_pc)
         improved_success.append(
             self.grasp_evaluator.evaluate_grasps(
                 pc, grasp_pcs).squeeze().cpu().data.numpy())
@@ -175,11 +197,10 @@ class GraspEstimator:
             improved_ts), np.asarray(improved_success)
 
     def improve_grasps_gradient_based(
-        self, pcs, grasp_eulers, grasp_trans, last_success
+        self, pcs, grasp_eulers, grasp_trans, last_success, og_pc = None
     ):  #euler_angles, translation, eval_and_improve, metadata):
         grasp_pcs = utils.control_points_from_rot_and_trans(
-            grasp_eulers, grasp_trans, self.device)
-
+            grasp_eulers, grasp_trans, self.device, pc=None)
         success = self.grasp_evaluator.evaluate_grasps(pcs, grasp_pcs)
         success.squeeze().backward(
             torch.ones(success.shape[0]).to(self.device))
@@ -197,11 +218,11 @@ class GraspEstimator:
                                       pcs,
                                       grasp_eulers,
                                       grasp_trans,
-                                      last_success=None):
+                                      last_success=None, og_pc = None):
         with torch.no_grad():
             if last_success is None:
                 grasp_pcs = utils.control_points_from_rot_and_trans(
-                    grasp_eulers, grasp_trans, self.device)
+                    grasp_eulers, grasp_trans, self.device, og_pc)
                 last_success = self.grasp_evaluator.evaluate_grasps(
                     pcs, grasp_pcs)
 

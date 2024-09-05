@@ -147,8 +147,8 @@ def main(args):
             #works, uncomment to use the vae and evaluator
             generated_grasps, generated_scores = estimator.generate_and_refine_grasps(
                 data["pc"].squeeze())
+            # generated_grasps = None
             # print(np.array(generated_grasps).shape)
-            
             if generated_grasps is None:
                 S = np.diag([0.2, 0.2, 0.2, 1])
                 pc, _ = estimator.prepare_pc(data["pc"].squeeze())
@@ -159,7 +159,7 @@ def main(args):
                 #     generated_grasps[0], batch_size = len(generated_grasps[0]),mode='qt', device='cuda').cpu()
                 grasps = []
                 for grasp in generated_grasps:
-                    print("grasp", grasp.shape)
+                    # print("grasp", grasp.shape)
                     euler_angles, translations = utils.convert_qt_to_rt(grasp.cpu())
                     selection = np.ones((len(euler_angles), 1))
                     refine_indexes, sample_indexes = np.where(selection)
@@ -184,12 +184,12 @@ def main(args):
                         grasps.append(rt1)
                         grasps.append(rt2)
                         generated_grasps = grasps
-            else:
-                print("scaling")
-                s = np.diag([0.2, 0.2, 0.2, 1])
-                for i in range(len(generated_grasps)):
-                    generated_grasps[i][0] = s.dot(generated_grasps[i][0])
-                    generated_grasps[i][1] = s.dot(generated_grasps[i][1])
+            # else:
+                # print("scaling")
+                # s = np.diag([0.2, 0.2, 0.2, 1])
+                # for i in range(len(generated_grasps)):
+                #     generated_grasps[i][0] = s.dot(generated_grasps[i][0])
+                #     generated_grasps[i][1] = s.dot(generated_grasps[i][1])
         
 
             print(np.array(generated_grasps).shape)
