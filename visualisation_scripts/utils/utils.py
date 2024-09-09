@@ -139,8 +139,8 @@ def perturb_grasp(grasp, num, min_translation, max_translation, min_rotation,
         grasp_transformation = tra.euler_matrix(*sampled_rotation)
         if len(grasp.shape) == 3:
             grasp_transformation[:3, 3] = sampled_translation
-            grasp[0] = np.matmul(grasp[0], grasp_transformation)
-            grasp[1] = np.matmul(grasp[1], grasp_transformation)
+            grasp[0] = np.matmul(np.copy(grasp[0]), grasp_transformation)
+            grasp[1] = np.matmul(np.copy(grasp[1]), grasp_transformation)
             output_grasps.append(grasp)
         else:
             grasp_transformation[:3, 3] = sampled_translation

@@ -12,7 +12,7 @@ except:
 
 
 class GraspEvaluatorData(BaseDataset):
-    def __init__(self, opt, ratio_positive=0.3, ratio_hardnegative=0.4):
+    def __init__(self, opt, ratio_positive=0.3, ratio_hardnegative=0.5):
         BaseDataset.__init__(self, opt)
         self.opt = opt
         self.device = torch.device('cuda:{}'.format(
@@ -23,12 +23,12 @@ class GraspEvaluatorData(BaseDataset):
         self.collision_hard_neg_queue = {}
         #self.get_mean_std()
         opt.input_nc = self.ninput_channels
-        ratio_positive = 0.5
+        # ratio_positive = 0.5
         # ratio_hardnegative = 0.5
         self.ratio_positive = self.set_ratios(ratio_positive)
         self.ratio_hardnegative = self.set_ratios(ratio_hardnegative)
         # print('ratio_positive', self.ratio_positive, 'ratio_hardnegative', self.ratio_hardnegative)
-        self.ratio_hardnegative = 1.0
+        # self.ratio_hardnegative = 1.0
         # self.collision_hard_neg_num_perturbations = 5
         # print(self.collision_hard_neg_num_perturbations)
 
@@ -76,9 +76,9 @@ class GraspEvaluatorData(BaseDataset):
         # #First ones that are good
         # print(len(data[1]   ))
         # print(data[2])
-        meta['good_og_grasps'] = data[1][:16,:,:,:]
+        meta['good_og_grasps'] = data[1][:9,:,:,:]
         #Later ones that are bad, sometimes very bad
-        meta['bad_og_grasps'] = data[1][16:,:,:,:]
+        meta['bad_og_grasps'] = data[1][9:,:,:,:]
         #print num of unique grasps
         # print("num_unique_pos_grasps", len(np.unique(meta['good_og_grasps'], axis=0)))
         # print("num_unique_neg_grasps", len(np.unique(meta['bad_og_grasps'], axis=0)))
@@ -266,7 +266,7 @@ class GraspEvaluatorData(BaseDataset):
             selected_quality = neg_qualities[negative_cluster[0]][
                 negative_cluster[1]]
             hard_neg_candidates += utils.perturb_grasp(
-                selected_grasp,
+                np.copy(selected_grasp),
                 self.collision_hard_neg_num_perturbations,
                 self.collision_hard_neg_min_translation,
                 self.collision_hard_neg_max_translation,
@@ -313,16 +313,31 @@ class GraspEvaluatorData(BaseDataset):
                     self.collision_hard_neg_queue[path].put(
                         (selected_grasp, selected_quality))
         negative_grasps = []
-        for _ in range(num_negative):
+        for idx in range(num_negative):
+            #pick a random value between 0 and ratio_hardnegative + ratio_flexnegative
+            ratio_flex_negative =  (1 - self.ratio_hardnegative - self.ratio_positive)
+            #Make random float value between 0 and ratio_hardnegative + ratio_flexnegative
+            random_selector = np.random.uniform(0, ratio_flex_negative + self.ratio_hardnegative)
             # print('qsize = ', self._collision_hard_neg_queue[path].qsize())
-            grasp, quality = self.collision_hard_neg_queue[path].get()
-            grasp = hard_neg_candidates[_]
-            # print(grasp)
-            output_grasps.append(grasp)
-            output_qualities.append(quality)
-            output_labels.append(0)
-            negative_grasps.append(grasp)
-        # print( np.array(output_grasps).shape)
+            # print(ratio_flex_negative)
+            if random_selector <= self.ratio_hardnegative:
+                # print('get hard neg')
+                grasp, quality = self.collision_hard_neg_queue[path].get()
+                grasp = hard_neg_candidates[idx]
+                output_grasps.append(grasp)
+                output_qualities.append(quality)
+                output_labels.append(0)
+                negative_grasps.append(grasp)
+            else:
+                # print('get flex neg')
+                grasp = neg_grasps[negative_clusters[idx][0]][
+                    negative_clusters[idx][1]]
+                quality = neg_qualities[negative_clusters[idx][0]][
+                    negative_clusters[idx][1]]
+                output_grasps.append(grasp)
+                output_qualities.append(quality)
+                output_labels.append(0)
+                negative_grasps.append(grasp)
         for iter in range(self.opt.num_grasps_per_object):
             if iter > 0:
                 output_pcs.append(np.copy(output_pcs[0]))

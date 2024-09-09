@@ -3,6 +3,7 @@ from __future__ import print_function
 import numpy as np
 import argparse
 import grasp_estimator
+import torch
 import sys
 import os
 import glob
@@ -158,20 +159,45 @@ def main(args):
                 # generated_grasps = utils.transform_control_points(
                 #     generated_grasps[0], batch_size = len(generated_grasps[0]),mode='qt', device='cuda').cpu()
                 grasps = []
+                grasp_pcs = []
                 for grasp in generated_grasps:
-                    # print("grasp", grasp.shape)
+                    print("grasp", grasp.shape)
                     euler_angles, translations = utils.convert_qt_to_rt(grasp.cpu())
+                    print("euler_angles", euler_angles.shape, "translations", translations.shape)
                     selection = np.ones((len(euler_angles), 1))
                     refine_indexes, sample_indexes = np.where(selection)
                     euler_angles1 = euler_angles[:, :3]
                     euler_angles2 = euler_angles[:, 3:]
                     translations1 = translations[:, :3]
                     translations2 = translations[:, 3:]
+                    # grasp_pc1 = utils.control_points_from_rot_and_trans(euler_angles1, translations1)
+                    # grasp_pc2 = utils.control_points_from_rot_and_trans(euler_angles2, translations2)
+                    if grasp_pcs == []:
+                        cps = utils.control_points_from_rot_and_trans(euler_angles, translations)
+                        #Split the control points into two parts
+                        cp1 = cps[:, 0,:,:]
+                        cp2 = cps[:, 1,:,:]
+                        print("cps", cps.shape)
+                        grasp_pcs = torch.cat((cp1, cp2), 0)
+                    else:
+                        cps = utils.control_points_from_rot_and_trans(euler_angles, translations)
+                        cp1 = cps[:, 0,:,:]
+                        cp2 = cps[:, 1,:,:]
+                        grasp_pcs = torch.cat((grasp_pcs, cp1, cp2), 0)
+                    # print(grasp_pc1)
+                    # if grasp_pcs == []:
+                    #     grasp_pcs = torch.cat((grasp_pc1, grasp_pc2), 0)
+                    # else:
+                    #     grasp_pcs = torch.cat((grasp_pcs, grasp_pc1, grasp_pc2), 0)
                     for refine_index, sample_index in zip(refine_indexes, sample_indexes):
                     # print("refine_index", refine_index, "sample_index", sample_index)
                         rt1 = tra.euler_matrix(*euler_angles1[refine_index, :])
+                        for rt in rt1:
+                            rt *= 0.3
                         rt1[:3, 3] = translations1[refine_index, :]
                         rt2 = tra.euler_matrix(*euler_angles2[refine_index, :])
+                        for rt in rt2:
+                            rt *= 0.3
                         rt2[:3, 3] = translations2[refine_index, :]
                         #Combine them into nx2x4x4 instead of nx4x4
                         # rt1 = np.expand_dims(rt1, 0)
@@ -192,13 +218,16 @@ def main(args):
                 #     generated_grasps[i][1] = s.dot(generated_grasps[i][1])
         
 
-            print(np.array(generated_grasps).shape)
+            print(np.array(generated_grasps).shape, np.array(generated_scores).shape)
+            #double the grasp scores pairwise. So that for example index 0 and 1 of the new scores have the same score as index 0 of the old scores
+            generated_scores = np.concatenate((generated_scores, generated_scores), axis = 0)
             mlab.figure(bgcolor=(1, 1, 1))
-            # draw_scene(data["pc"][0],
-            #            grasps=generated_grasps,
-            #            grasp_scores=generated_scores)
             draw_scene(data["pc"][0],
-                       grasps=generated_grasps)
+                       grasps=generated_grasps,
+                       grasp_scores=generated_scores)
+            # draw_scene(data["pc"][0],
+            #               grasps=generated_grasps,
+            #               target_cps=torch.FloatTensor(grasp_pcs))
             print('close the window to continue to next object . . .')
             mlab.show()
             break
@@ -236,7 +265,7 @@ def main(args):
             # Only show the first grasp
             # generated_grasps = generated_grasps[0:2]
             # generated_scores = generated_scores[0:2]
-            print(np.array(generated_grasps).shape)
+            print(np.array(generated_grasps).shape, np.array(generated_scores).shape)
             mlab.figure(bgcolor=(1, 1, 1))
             draw_scene(
                 pc,

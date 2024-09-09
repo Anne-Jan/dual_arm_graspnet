@@ -57,7 +57,7 @@ class GraspNetModel:
         #check if the input grasps and pc are not nan
         if torch.isnan(input_pcs).any() or torch.isnan(input_grasps).any():
             print("Input pc or grasps are nan")
-        self.og_grasps = data['og_grasps']
+        # self.og_grasps = data['og_grasps']
         # print("input_grasps", input_grasps.shape)
         # print(len(self.og_grasps))
         # reshape from 32 x 2 x 4 x 4 to 64 x 4 x 4
@@ -76,8 +76,8 @@ class GraspNetModel:
         ###END OF CODE SNIPPET
 
         ###CODE SNIPPET TO VISUALIZE GOOD AND BAD GRASPS FOR THE EVALUATOR
-        self.og_grasps = data['good_og_grasps']
-        #reshape from 32 x 2 x 4 x 4 to 64 x 4 x 4
+        # self.og_grasps = data['good_og_grasps']
+        # # reshape from 32 x 2 x 4 x 4 to 64 x 4 x 4
         # if len(self.og_grasps.shape) == 4:
         #     self.og_grasps = self.og_grasps.reshape(-1, 4, 4)
         # mlab.figure(bgcolor=(1, 1, 1))
@@ -87,7 +87,7 @@ class GraspNetModel:
         #     )
         # mlab.show()
         # # Cear the scene
-        # mlab.clf()
+        # # mlab.clf()
         # mlab.figure(bgcolor=(1, 1, 1))
         # self.og_grasps = data['bad_og_grasps']
         # # print(self.og_grasps.shape)
@@ -118,12 +118,12 @@ class GraspNetModel:
 
     def evaluate_grasps(self, pcs, gripper_pcs):
         success, _ = self.net.module(pcs, gripper_pcs)
-        success = torch.tensor_split(success, 2, dim=0)
+        # success = torch.tensor_split(success, 2, dim=0)
         
-        success = success[0].add(success[1])
-        #Devide all values by 2
-        success = success / 2.0
-
+        # success = success[0].add(success[1])
+        # #Devide all values by 2
+        # success = success / 2.0
+        # print(torch.sigmoid(success))
         # print(success.shape)
         return torch.sigmoid(success)
 
@@ -290,7 +290,7 @@ class GraspNetModel:
                 # print("predicted unrounded", torch.sigmoid(prediction).squeeze())
 
                 predicted = torch.round(torch.sigmoid(prediction)).squeeze()
-                # print("predicted rounded", predicted)
-                # print("targets", self.targets)
+                print("predicted rounded", predicted)
+                print("targets", self.targets)
                 correct = (predicted == self.targets).sum().item()
                 return correct, len(self.targets)
