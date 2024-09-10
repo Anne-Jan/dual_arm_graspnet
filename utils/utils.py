@@ -612,8 +612,7 @@ def control_points_from_rot_and_trans(grasp_eulers,
                 predicted_cp = predicted_cp.reshape(-1, 6, 3)
             # print(self.og_grasps.shape, predicted_cp.shape)
             # print(predicted_cp.shape)
-            predicted_cp = predicted_cp[0:4]
-            print(pc.shape)
+            # predicted_cp = predicted_cp[0:4]
             mlab.figure(bgcolor=(1, 1, 1))
             draw_scene(
                     pc = pc.cpu().numpy(),
@@ -638,6 +637,7 @@ def control_points_from_rot_and_trans(grasp_eulers,
 def rot_and_trans_to_grasps(euler_angles, translations, selection_mask):
     print("euler_angles", euler_angles.shape, "translations", translations.shape, "selection_mask", selection_mask.shape)
     if euler_angles.shape[2] == 6:
+        # print("duals")
         grasps =[]
         grasps1 = []
         grasps2 = []
@@ -652,18 +652,22 @@ def rot_and_trans_to_grasps(euler_angles, translations, selection_mask):
         selection_mask2 = selection_mask[:, 200:]
         refine_indexes1, sample_indexes1 = np.where(selection_mask1)
         refine_indexes2, sample_indexes2 = np.where(selection_mask2)
-        print(refine_indexes1.shape, sample_indexes1.shape, euler_angles1.shape, translations1.shape)
-        if len(refine_indexes1) < len(refine_indexes2):
-            refine_indexes = refine_indexes1
-            sample_indexes = sample_indexes1
-        else:
-            refine_indexes = refine_indexes2
-            sample_indexes = sample_indexes2
+        # print(refine_indexes1.shape, sample_indexes1.shape, euler_angles1.shape, translations1.shape)
+        # if len(refine_indexes1) < len(refine_indexes2):
+        #     refine_indexes = refine_indexes1
+        #     sample_indexes = sample_indexes1
+        # else:
+        #     refine_indexes = refine_indexes2
+        #     sample_indexes = sample_indexes2
         for refine_index, sample_index in zip(refine_indexes, sample_indexes):
             # print("refine_index", refine_index, "sample_index", sample_index)
             rt1 = tra.euler_matrix(*euler_angles1[refine_index, sample_index, :])
+            for rt in rt1:
+                rt *= 0.3
             rt1[:3, 3] = translations1[refine_index, sample_index, :]
             rt2 = tra.euler_matrix(*euler_angles2[refine_index, sample_index, :])
+            for rt in rt2:
+                rt *= 0.3
             rt2[:3, 3] = translations2[refine_index, sample_index, :]
             #Combine them into nx2x4x4 instead of nx4x4
             # rt1 = np.expand_dims(rt1, 0)
