@@ -76,7 +76,7 @@ class GraspNetModel:
         ###END OF CODE SNIPPET
 
         ###CODE SNIPPET TO VISUALIZE GOOD AND BAD GRASPS FOR THE EVALUATOR
-        self.og_grasps = data['good_og_grasps']
+        # self.og_grasps = data['good_og_grasps']
         #reshape from 32 x 2 x 4 x 4 to 64 x 4 x 4
         # if len(self.og_grasps.shape) == 4:
         #     self.og_grasps = self.og_grasps.reshape(-1, 4, 4)
