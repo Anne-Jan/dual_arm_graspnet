@@ -10,6 +10,7 @@ import torch
 from utils.visualization_utils import *
 import yaml
 from easydict import EasyDict as edict
+from sklearn.decomposition import PCA
 
 GRIPPER_PC = np.load('gripper_models/panda_pc.npy',
                      allow_pickle=True).item()['points']
@@ -339,6 +340,66 @@ def get_control_point_tensor(batch_size, use_torch=True, device="cpu", dual_gras
     
     return control_points
 
+def control_points_from_grasps(grasps, output_type='cp', pc=None):
+
+    if output_type == 'cp':
+        """
+        Computes the control points from the grasps.
+        """
+        grasps = np.asarray(grasps)
+        grasp_shape = grasps.shape
+        print(len(grasp_shape))
+        assert (len(grasp_shape) == 3), grasp_shape
+        assert (grasp_shape[1] == 4 and grasp_shape[2] == 4), grasp_shape
+        control_points = get_control_point_tensor(grasps.shape[0], use_torch=False)
+        shape = control_points.shape
+        ones = np.ones((shape[0], shape[1], 1), dtype=np.float32)
+        control_points = np.concatenate((control_points, ones), -1)
+        control_points = np.matmul(control_points, np.transpose(grasps, (0, 2, 1)))
+        control_points = control_points[:, :,:3]
+
+        # control_points = torch.from_numpy(control_points)
+        print(control_points.shape)
+        if pc != None:
+            mlab.figure(bgcolor=(1, 1, 1))
+            draw_scene(
+                    pc = pc.cpu().numpy(),
+                    grasps=grasps,
+                    # target_cps=control_points,
+                )
+            mlab.show()
+
+        
+        #shift the control points and grasps by some amount
+        # shift = [0.1, 0.05, -0.02]
+        # for control_point in control_points:
+        #     control_point += shift
+        # for grasp in grasps:
+        #     grasp[:3, 3] += shift
+        # if pc != None:
+        #     mlab.figure(bgcolor=(1, 1, 1))
+        #     draw_scene(
+        #             pc = pc.cpu().numpy(),
+        #             grasps=grasps,
+        #             target_cps=control_points,
+        #         )
+        #     mlab.show()
+        #     # print(xd)
+        return control_points
+    if output_type == "tf":
+        transformed_grasp = []
+        for grasp in grasps:
+            centroid = np.mean(grasp, axis=0)
+            pca = PCA(n_components=3)
+            pca.fit(grasp)
+            R = pca.components_
+            R *= 0.2
+            G = np.eye(4)
+            G[:3, :3] = R
+            G[:3, 3] = centroid
+            transformed_grasp.append(G)
+
+        return transformed_grasp
 
 def transform_control_points(gt_grasps, batch_size, mode='qt', device="cpu", dual_grasp=False):
     """
@@ -357,7 +418,7 @@ def transform_control_points(gt_grasps, batch_size, mode='qt', device="cpu", dua
             assert (grasp_shape[-1] == 14), grasp_shape
             control_points = get_control_point_tensor(batch_size, device=device)
             for control_point in control_points:
-                control_point *= 0.3
+                control_point *= 0.2
             num_control_points = control_points.shape[1]
             input_gt_grasps = gt_grasps
             #split the gt_grasps into two parts, one for each grasp in the pair
@@ -599,7 +660,7 @@ def control_points_from_rot_and_trans(grasp_eulers,
                                     batched=True)
         control_points = get_control_point_tensor(grasp_eulers.shape[0], device=device)
         for control_point in control_points:
-                control_point *= 0.3
+                control_point *= 0.2
         grasp_pc1 = control_points
         grasp_pc2 = control_points
         grasp_pc1 = torch.matmul(grasp_pc1, rot1.permute(0, 2, 1))
@@ -663,11 +724,11 @@ def rot_and_trans_to_grasps(euler_angles, translations, selection_mask):
             # print("refine_index", refine_index, "sample_index", sample_index)
             rt1 = tra.euler_matrix(*euler_angles1[refine_index, sample_index, :])
             for rt in rt1:
-                rt *= 0.3
+                rt *= 0.2
             rt1[:3, 3] = translations1[refine_index, sample_index, :]
             rt2 = tra.euler_matrix(*euler_angles2[refine_index, sample_index, :])
             for rt in rt2:
-                rt *= 0.3
+                rt *= 0.2
             rt2[:3, 3] = translations2[refine_index, sample_index, :]
             #Combine them into nx2x4x4 instead of nx4x4
             # rt1 = np.expand_dims(rt1, 0)

@@ -47,7 +47,7 @@ def make_parser():
         help=
         "If all, no grasps are removed. If better than threshold, only the last refined grasps are considered while better_than_threshold_in_sequence consideres all refined grasps"
     )
-
+    parser.add_argument('--num_objects_to_show', type=int, default=5)
     parser.add_argument('--target_pc_size', type=int, default=1024)
     parser.add_argument('--num_grasp_samples', type=int, default=200)
     parser.add_argument(
@@ -132,7 +132,7 @@ def main(args):
     args = parser.parse_args()
     grasp_sampler_args = utils.read_checkpoint_args(args.grasp_sampler_folder)
     grasp_sampler_args.is_train = False
-
+    num_objects_to_show = args.num_objects_to_show
     grasp_evaluator_args = utils.read_checkpoint_args(
         args.grasp_evaluator_folder)
     grasp_evaluator_args.continue_train = True
@@ -230,7 +230,8 @@ def main(args):
             #               target_cps=torch.FloatTensor(grasp_pcs))
             print('close the window to continue to next object . . .')
             mlab.show()
-            break
+            if i+1 == num_objects_to_show:
+                break
     else:
         for npy_file in glob.glob(os.path.join(args.npy_folder, '*.npy')):
             # Depending on your numpy version you may need to change allow_pickle

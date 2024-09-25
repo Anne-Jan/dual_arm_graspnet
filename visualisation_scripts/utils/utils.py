@@ -327,29 +327,6 @@ def get_control_point_tensor(batch_size, use_torch=True, device="cpu", dual_gras
     if use_torch:
         return torch.tensor(control_points).to(device)
     
-    #Rotate it 90 degrees around the x axis
-    # control_points = np.matmul(control_points, tra.rotation_matrix(-np.pi/2, [1, 0, 1])[:3, :3].T)
-    #Rotate it by 45 degrees around the x axis
-    # control_points = np.matmul(control_points, tra.rotation_matrix(-np.pi / 3, [1, 0, 0])[:3, :3].T)
-    
-    
-    # # Reshape the array to apply the rotation to each (x, y, z) coordinate
-    # reshaped_points = control_points.reshape(-1, 3)
-    # print('original control points', control_points)
-    
-    # control_points = reshaped_points.reshape(1, 6, 3)
-    # print('rotated control points', control_points)
-    # # print(reshaped_points.shape)
-
-    # # # Apply the rotation to each point
-    # rotated_points = np.dot(reshaped_points, rotation_matrix.T)
-
-    # # # Reshape back to the original shape (1, 6, 3)
-    # rotated_control_points = rotated_points.reshape(1, 6, 3)
-    # control_points = rotated_control_points
-    # swapped_control_points = control_points.copy()
-    # swapped_control_points[..., [1, 2]] = swapped_control_points[..., [2, 1]]
-    # control_points = swapped_control_points
 
     return control_points
 
@@ -686,7 +663,7 @@ def convert_qt_to_rt(grasps):
         Rs1 = qeuler(grasps1[:, :4], "zyx")
         Ts2 = grasps2[:, 4:]
         Rs2 = qeuler(grasps2[:, :4], "zyx")
-        # print(Rs1.shape, Ts1.shape, Rs2.shape, Ts2.shape)
+        print(Rs1.shape, Ts1.shape, Rs2.shape, Ts2.shape)
         return torch.cat((Rs1, Rs2), -1), torch.cat((Ts1, Ts2), -1)
         #Combine them into
     else:
