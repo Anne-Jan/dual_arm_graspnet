@@ -138,6 +138,7 @@ def perturb_grasp(grasp, num, min_translation, max_translation, min_rotation,
     # print(min_translation, max_translation, min_rotation, max_rotation)
     output_grasps = []
     for _ in range(num):
+        # print(min_translation, max_translation, min_rotation, max_rotation)
         sampled_translation = [
             np.random.uniform(lb, ub)
             for lb, ub in zip(min_translation, max_translation)
@@ -146,8 +147,9 @@ def perturb_grasp(grasp, num, min_translation, max_translation, min_rotation,
             np.random.uniform(lb, ub)
             for lb, ub in zip(min_rotation, max_rotation)
         ]
-        
+        # print(sampled_translation, *sampled_rotation)
         grasp_transformation = tra.euler_matrix(*sampled_rotation)
+        # print(grasp_transformation)
         if len(grasp.shape) == 3:
             grasp_transformation[:3, 3] = sampled_translation
             grasp[0] = np.matmul(grasp[0], grasp_transformation)
@@ -340,13 +342,14 @@ def get_control_point_tensor(batch_size, use_torch=True, device="cpu", dual_gras
     
     return control_points
 
-def control_points_from_grasps(grasps, output_type='cp', pc=None):
+def control_points_from_grasps(grasps, output_type='cp', pc=None, scale=0.2):
 
     if output_type == 'cp':
         """
         Computes the control points from the grasps.
         """
         grasps = np.asarray(grasps)
+        print(grasps.shape)
         grasp_shape = grasps.shape
         print(len(grasp_shape))
         assert (len(grasp_shape) == 3), grasp_shape
@@ -393,7 +396,7 @@ def control_points_from_grasps(grasps, output_type='cp', pc=None):
             pca = PCA(n_components=3)
             pca.fit(grasp)
             R = pca.components_
-            R *= 0.2
+            R *= scale
             G = np.eye(4)
             G[:3, :3] = R
             G[:3, 3] = centroid
@@ -401,7 +404,7 @@ def control_points_from_grasps(grasps, output_type='cp', pc=None):
 
         return transformed_grasp
 
-def transform_control_points(gt_grasps, batch_size, mode='qt', device="cpu", dual_grasp=False):
+def transform_control_points(gt_grasps, batch_size, mode='qt', device="cpu", dual_grasp=False, scale=0.2):
     """
       Transforms canonical points using gt_grasps.
       mode = 'qt' expects gt_grasps to have (batch_size x 7) where each 
@@ -418,7 +421,7 @@ def transform_control_points(gt_grasps, batch_size, mode='qt', device="cpu", dua
             assert (grasp_shape[-1] == 14), grasp_shape
             control_points = get_control_point_tensor(batch_size, device=device)
             for control_point in control_points:
-                control_point *= 0.2
+                control_point *= scale
             num_control_points = control_points.shape[1]
             input_gt_grasps = gt_grasps
             #split the gt_grasps into two parts, one for each grasp in the pair
@@ -645,7 +648,7 @@ def mkdir(path):
 
 def control_points_from_rot_and_trans(grasp_eulers,
                                       grasp_translations,
-                                      device="cpu", pc = None):
+                                      device="cpu", pc = None, scale=0.2):
     if grasp_eulers.shape[1] == 6:
         # print("duals")
         grasp_eulers1 = grasp_eulers[:, :3]
@@ -660,7 +663,7 @@ def control_points_from_rot_and_trans(grasp_eulers,
                                     batched=True)
         control_points = get_control_point_tensor(grasp_eulers.shape[0], device=device)
         for control_point in control_points:
-                control_point *= 0.2
+                control_point *= scale
         grasp_pc1 = control_points
         grasp_pc2 = control_points
         grasp_pc1 = torch.matmul(grasp_pc1, rot1.permute(0, 2, 1))
@@ -689,13 +692,29 @@ def control_points_from_rot_and_trans(grasp_eulers,
                              grasp_eulers[:, 2],
                              batched=True)
     grasp_pc = get_control_point_tensor(grasp_eulers.shape[0], device=device)
+    for control_point in grasp_pc:
+        control_point *= scale
     grasp_pc = torch.matmul(grasp_pc, rot.permute(0, 2, 1))
     grasp_pc += grasp_translations.unsqueeze(1).expand(-1, grasp_pc.shape[1],
                                                        -1)
+    if pc is not None:
+            predicted_cp = grasp_pc
+            if len(predicted_cp.shape) == 4:
+                predicted_cp = predicted_cp.reshape(-1, 6, 3)
+            # print(self.og_grasps.shape, predicted_cp.shape)
+            # print(predicted_cp.shape)
+            # predicted_cp = predicted_cp[0:4]
+            mlab.figure(bgcolor=(1, 1, 1))
+            draw_scene(
+                    pc = pc.cpu().numpy(),
+                    # grasps=self.og_grasps,
+                    target_cps=predicted_cp,
+                )
+            mlab.show()
     return grasp_pc
 
 
-def rot_and_trans_to_grasps(euler_angles, translations, selection_mask):
+def rot_and_trans_to_grasps(euler_angles, translations, selection_mask, scale=0.2):
     print("euler_angles", euler_angles.shape, "translations", translations.shape, "selection_mask", selection_mask.shape)
     if euler_angles.shape[2] == 6:
         # print("duals")
@@ -724,11 +743,11 @@ def rot_and_trans_to_grasps(euler_angles, translations, selection_mask):
             # print("refine_index", refine_index, "sample_index", sample_index)
             rt1 = tra.euler_matrix(*euler_angles1[refine_index, sample_index, :])
             for rt in rt1:
-                rt *= 0.2
+                rt *= scale
             rt1[:3, 3] = translations1[refine_index, sample_index, :]
             rt2 = tra.euler_matrix(*euler_angles2[refine_index, sample_index, :])
             for rt in rt2:
-                rt *= 0.2
+                rt *= scale
             rt2[:3, 3] = translations2[refine_index, sample_index, :]
             #Combine them into nx2x4x4 instead of nx4x4
             # rt1 = np.expand_dims(rt1, 0)
@@ -746,6 +765,8 @@ def rot_and_trans_to_grasps(euler_angles, translations, selection_mask):
         rt = tra.euler_matrix(*euler_angles[refine_index, sample_index, :])
         rt[:3, 3] = translations[refine_index, sample_index, :]
         # print("rt", rt.shape)
+        for rts in rt:
+            rts *= scale
         grasps.append(rt)
     return grasps
 
@@ -910,7 +931,7 @@ def qrot(q, v):
     return (v + 2 * (q[:, :1] * uv + uuv)).view(original_shape)
 
 
-def get_inlier_grasp_indices(grasp_list, query_point, threshold=1.0, device="cpu"):
+def get_inlier_grasp_indices(grasp_list, query_point, threshold=1.0, device="cpu", scale=0.2):
     """This function returns all grasps whose distance between the mid of the finger tips and the query point is less than the threshold value. 
     
     Arguments:
@@ -924,7 +945,7 @@ def get_inlier_grasp_indices(grasp_list, query_point, threshold=1.0, device="cpu
     for grasps in grasp_list:
         grasp_cps = transform_control_points(grasps,
                                              grasps.shape[0],
-                                             device=device)
+                                             device=device, scale=scale)
         # print(grasp_cps.shape)
         if len(grasp_cps.shape) == 4:
             mid_points1 = get_mid_of_contact_points(grasp_cps[:, 0, :, :])

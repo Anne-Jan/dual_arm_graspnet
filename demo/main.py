@@ -39,6 +39,13 @@ def make_parser():
         "When choose_fn is something else than all, all grasps with a score given by the evaluator notwork less than the threshold are removed"
     )
     parser.add_argument(
+        '--object_scale',
+        type=float,
+        default=0.2,
+        help=
+        "Sets the downscaled size of the object. The object is scaled to this size before being fed to the network"
+    )
+    parser.add_argument(
         '--choose_fn',
         choices={
             "all", "better_than_threshold", "better_than_threshold_in_sequence"
@@ -222,7 +229,7 @@ def main(args):
             #double the grasp scores pairwise. So that for example index 0 and 1 of the new scores have the same score as index 0 of the old scores
             generated_scores = np.concatenate((generated_scores, generated_scores), axis = 0)
             mlab.figure(bgcolor=(1, 1, 1))
-            draw_scene(data["pc"][0],
+            draw_scene_dual(data["pc"][0],
                        grasps=generated_grasps,
                        grasp_scores=generated_scores)
             # draw_scene(data["pc"][0],

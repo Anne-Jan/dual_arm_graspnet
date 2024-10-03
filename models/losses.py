@@ -70,18 +70,39 @@ def control_point_l1_loss(pred_control_points,
             # print(xd)
             ###End of code snippet
 
-            error = torch.sum(torch.abs(pred_control_points - gt_control_points), -1)
-            # print('error', error.shape)
-            #Try to make the error bigger, make it inversely proportional to the downscaling factor of the meshes
-            # error *= 2.5
-            error = torch.mean(error, -1)
-            error *= confidence
-            #Take the mean of each pair
-            error = torch.mean(error, -1)
-            # print("final error mean", error)
-            if torch.isnan(torch.mean(error)):
-                print('error is nan')
+            ###Old code
+            # error = torch.sum(torch.abs(pred_control_points - gt_control_points), -1)
+            # # print('error', error.shape)
+            # #Try to make the error bigger, make it inversely proportional to the downscaling factor of the meshes
+            # # error *= 2.5
+            # error = torch.mean(error, -1)
+            # error *= confidence
+            # #Take the mean of each pair
+            # error = torch.mean(error, -1)
+            # # print("final error mean", error)
+            # if torch.isnan(torch.mean(error)):
+            #     print('error is nan')
+            ###End of old code
+
+            ###New code calculation of the error
             #split the confidence in half
+            pred_control_points1 = pred_control_points[:,0,:,:]
+            pred_control_points2 = pred_control_points[:,1,:,:]
+            gt_control_points1 = gt_control_points[:,0,:,:]
+            gt_control_points2 = gt_control_points[:,1,:,:]
+            error1 = pred_control_points1.unsqueeze(1) - gt_control_points1.unsqueeze(0)
+            error2 = pred_control_points2.unsqueeze(1) - gt_control_points2.unsqueeze(0)
+            error1 = torch.sum(torch.abs(error1), -1)  # L1 distance of error (N_pred, N_gt, M)
+            error2 = torch.sum(torch.abs(error2), -1)  # L1 distance of error (N_pred, N_gt, M)
+            error1 = torch.mean(error1, -1)  # average L1 for all the control points. (N_pred, N_gt)
+            error2 = torch.mean(error2, -1)  # average L1 for all the control points. (N_pred, N_gt)
+            confidence1 = confidence[:,0]
+            confidence2 = confidence[:,1]
+            error1 *= confidence1
+            error2 *= confidence2
+            error = torch.mean(error1 + error2)
+
+            ###End of new code
             confidence = torch.mean(confidence, -1)
             confidence_term = torch.mean(
                 torch.log(torch.max(

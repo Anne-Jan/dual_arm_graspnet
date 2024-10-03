@@ -58,10 +58,10 @@ class GraspNetModel:
         if torch.isnan(input_pcs).any() or torch.isnan(input_grasps).any():
             print("Input pc or grasps are nan")
         # self.og_grasps = data['og_grasps']
-        # print("input_grasps", input_grasps.shape)
-        # print(len(self.og_grasps))
-        # reshape from 32 x 2 x 4 x 4 to 64 x 4 x 4
-        # ##CODE SNIPPET TO VISUALIZE THE INPUT GRASPS
+        # # print("input_grasps", input_grasps.shape)
+        # # print(len(self.og_grasps))
+        # # reshape from 32 x 2 x 4 x 4 to 64 x 4 x 4
+        # # ##CODE SNIPPET TO VISUALIZE THE INPUT GRASPS
         # target_cps = data['target_cps'].reshape(-1, 6, 3)
         # if len(self.og_grasps.shape) == 4:
         #     self.og_grasps = self.og_grasps.reshape(-1, 4, 4)
@@ -77,7 +77,7 @@ class GraspNetModel:
 
         ###CODE SNIPPET TO VISUALIZE GOOD AND BAD GRASPS FOR THE EVALUATOR
         # self.og_grasps = data['good_og_grasps']
-        #reshape from 32 x 2 x 4 x 4 to 64 x 4 x 4
+        # #reshape from 32 x 2 x 4 x 4 to 64 x 4 x 4
         # if len(self.og_grasps.shape) == 4:
         #     self.og_grasps = self.og_grasps.reshape(-1, 4, 4)
         # mlab.figure(bgcolor=(1, 1, 1))
@@ -290,7 +290,7 @@ class GraspNetModel:
                 # print("predicted unrounded", torch.sigmoid(prediction).squeeze())
 
                 predicted = torch.round(torch.sigmoid(prediction)).squeeze()
-                print("predicted rounded", predicted)
-                print("targets", self.targets)
+                # print("predicted rounded", predicted)
+                # print("targets", self.targets)
                 correct = (predicted == self.targets).sum().item()
                 return correct, len(self.targets)

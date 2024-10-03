@@ -210,44 +210,6 @@ class BaseDataset(data.Dataset):
                 
                 grasps[i][0] = S.dot(grasps[i][0])
                 grasps[i][1] = S.dot(grasps[i][1])
-
-                def compute_center_point(grasp_matrix):
-                    # Calculate the mean of the first three columns (x, y, z coordinates)
-                    center_x = np.mean(grasp_matrix[:, 0])
-                    center_y = np.mean(grasp_matrix[:, 1])
-                    center_z = np.mean(grasp_matrix[:, 2])
-                    return center_x, center_y, center_z
-
-                def scale_and_translate_gripper(grasp_matrix, center_point, scaling_factor, translation_vector):
-                    # Extract the center coordinates
-                    C_x, C_y, C_z = center_point
-                    
-                    # Create a new matrix for the scaled and translated coordinates
-                    scaled_translated_matrix = np.copy(grasp_matrix)
-                    
-                    # Apply the scaling transformation to the first three columns (x, y, z coordinates)
-                    for i in range(grasp_matrix.shape[0]):
-                        x, y, z = grasp_matrix[i, 0], grasp_matrix[i, 1], grasp_matrix[i, 2]
-                        x_prime = C_x + scaling_factor * (x - C_x)
-                        y_prime = C_y + scaling_factor * (y - C_y)
-                        z_prime = C_z + scaling_factor * (z - C_z)
-                        # Apply translation
-                        x_prime += translation_vector[0]
-                        y_prime += translation_vector[1]
-                        z_prime += translation_vector[2]
-                        scaled_translated_matrix[i, 0] = x_prime
-                        scaled_translated_matrix[i, 1] = y_prime
-                        scaled_translated_matrix[i, 2] = z_prime
-                    
-                    return scaled_translated_matrix
-                scale_factor = 1.5
-                translation_vector = [0, 0, 0]
-                # Example grasp matrix (4x4 matrix)
-                # grasps[i][0] = scale_and_translate_gripper(grasps[i][0], compute_center_point(grasps[i][0]), scale_factor, translation_vector)    
-                # grasps[i][1] = scale_and_translate_gripper(grasps[i][1], compute_center_point(grasps[i][1]), scale_factor, translation_vector) 
-
-
-
             
         
             #Set return all grasps to true
