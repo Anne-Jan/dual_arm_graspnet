@@ -91,6 +91,7 @@ def define_loss(opt):
     if opt.arch == 'vae':
         kl_loss = losses.kl_divergence
         reconstruction_loss = losses.control_point_l1_loss
+        reconstruction_loss = losses.min_distance_loss
         return kl_loss, reconstruction_loss
     elif opt.arch == 'gan':
         reconstruction_loss = losses.min_distance_loss
