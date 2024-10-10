@@ -299,6 +299,7 @@ class GraspEstimator:
     def improve_grasps_gradient_based_dual(
         self, pcs, grasp_eulers1, grasp_eulers2, grasp_trans1, grasp_trans2, last_success, og_pc = None
     ):  #euler_angles, translation, eval_and_improve, metadata):
+        # print("dual")
         grasp_eulers = torch.cat((grasp_eulers1, grasp_eulers2), -1)
         grasp_trans= torch.cat(
             (grasp_trans1, grasp_trans2), -1)

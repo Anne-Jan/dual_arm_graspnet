@@ -75,7 +75,7 @@ def define_classifier(opt, gpu_ids, arch, init_type, init_gain, device):
     net = None
     if arch == 'vae':
         net = GraspSamplerVAE(opt.model_scale, opt.pointnet_radius,
-                              opt.pointnet_nclusters, opt.latent_size, device, opt.dual_grasp)
+                              opt.pointnet_nclusters, opt.latent_size, device, opt.dual_grasp, opt.merge_pcs_in_vae_encoder)
     elif arch == 'gan':
         net = GraspSamplerGAN(opt.model_scale, opt.pointnet_radius,
                               opt.pointnet_nclusters, opt.latent_size, device, opt.dual_grasp)
@@ -91,7 +91,7 @@ def define_loss(opt):
     if opt.arch == 'vae':
         kl_loss = losses.kl_divergence
         reconstruction_loss = losses.control_point_l1_loss
-        reconstruction_loss = losses.min_distance_loss
+        # reconstruction_loss = losses.min_distance_loss
         return kl_loss, reconstruction_loss
     elif opt.arch == 'gan':
         reconstruction_loss = losses.min_distance_loss
@@ -115,6 +115,7 @@ class GraspSampler(nn.Module):
         # represents the x, y, z position of the point-cloud
         self.decoder = base_network(pointnet_radius, pointnet_nclusters,
                                     model_scale, num_input_features)
+        
         if dual_grasp:
             self.dual_grasp = True
             self.qleft = nn.Linear(model_scale * 1024, 4)
@@ -173,13 +174,15 @@ class GraspSamplerVAE(GraspSampler):
                  pointnet_nclusters=128,
                  latent_size=2,
                  device="cpu",
-                 dual_grasp=False):
+                 dual_grasp=False,
+                 merge_pcs_in_vae_encoder=False):
         super(GraspSamplerVAE, self).__init__(latent_size, device)
-        self.create_encoder(model_scale, pointnet_radius, pointnet_nclusters, dual_grasp)
+        self.create_encoder(model_scale, pointnet_radius, pointnet_nclusters, dual_grasp, merge_pcs_in_vae_encoder)
 
         self.create_decoder(model_scale, pointnet_radius, pointnet_nclusters,
                             latent_size + 3, dual_grasp)
         self.create_bottleneck(model_scale * 1024, latent_size)
+        self.merge_pcs_in_vae_encoder = merge_pcs_in_vae_encoder
 
     def create_encoder(
             self,
@@ -187,19 +190,23 @@ class GraspSamplerVAE(GraspSampler):
             pointnet_radius,
             pointnet_nclusters,
             dual_grasp=False,
+            merge_pcs_in_vae_encoder=False
     ):
         # The number of input features for the encoder is 19: the x, y, z
         # position of the point-cloud and the flattened 4x4=16 grasp pose matrix
         #If using dual grasps the number of the input features is 35: the x, y, z
         # position of the point-cloud and the flattened 2x4x4=32 grasp pose matrix
         # print("dual_grasp", dual_grasp)
-        if dual_grasp:
+        if dual_grasp and not merge_pcs_in_vae_encoder:
             self.encoder = base_network(pointnet_radius, pointnet_nclusters,
                                         model_scale, 35)
             # self.encoder_left = base_network(pointnet_radius, pointnet_nclusters,
             #                             model_scale, 19)
             # self.encoder_right = base_network(pointnet_radius, pointnet_nclusters,
             #                             model_scale, 19)
+        elif dual_grasp and merge_pcs_in_vae_encoder:
+            self.encoder = base_network(pointnet_radius, pointnet_nclusters,
+                                        model_scale, 4)
         else:
             self.encoder = base_network(pointnet_radius, pointnet_nclusters,
                                     model_scale, 19)
@@ -213,6 +220,7 @@ class GraspSamplerVAE(GraspSampler):
         for module in self.encoder[0]:
             xyz, xyz_features = module(xyz, xyz_features)
         return self.encoder[1](xyz_features.squeeze(-1))
+    
 
     def bottleneck(self, z):
         return self.latent_space[0](z), self.latent_space[1](z)
@@ -223,12 +231,16 @@ class GraspSamplerVAE(GraspSampler):
         return mu + eps * std
 
     def forward(self, pc, grasp=None, train=True):
-        if train:
+        if train and not self.merge_pcs_in_vae_encoder:
             # print(grasp.shape)
             return self.forward_train(pc, grasp)
-        else:
+        elif train and self.merge_pcs_in_vae_encoder:
+            return self.forward_train_merge(pc, grasp)
+        elif not train and not self.merge_pcs_in_vae_encoder:
             return self.forward_test(pc, grasp)
-
+        elif not train and self.merge_pcs_in_vae_encoder:
+            return self.forward_test_merge(pc, grasp)
+    
     def forward_train(self, pc, grasp):
         # print(pc.shape, grasp.shape)
         #Double the amount of pc 
@@ -271,12 +283,27 @@ class GraspSamplerVAE(GraspSampler):
         # print("qt", qt.shape, "confidence", confidence.shape, "mu", mu.shape, "logvar", logvar.shape)
         return qt, confidence, mu, logvar
 
+    def forward_train_merge(self, pc, gripper_pc):
+        pc, pc_features = self.merge_pc_and_gripper_pc(pc, gripper_pc)
+        z = self.encode(pc, pc_features.contiguous())
+        mu, logvar = self.bottleneck(z)
+        z = self.reparameterize(mu, logvar)
+        qt, confidence = self.decode(pc, z, self.dual_grasp)
+        return qt, confidence, mu, logvar
+
     def forward_test(self, pc, grasp):
         # pc = pc.repeat(2, 1, 1)
         input_features = torch.cat(
             (pc, grasp.unsqueeze(1).expand(-1, pc.shape[1], -1)),
             -1).transpose(-1, 1).contiguous()
         z = self.encode(pc, input_features)
+        mu, _ = self.bottleneck(z)
+        qt, confidence = self.decode(pc, mu, self.dual_grasp)
+        return qt, confidence
+    
+    def forward_test_merge(self, pc, gripper_pc):
+        pc, pc_features = self.merge_pc_and_gripper_pc(pc, gripper_pc)
+        z = self.encode(pc, pc_features.contiguous())
         mu, _ = self.bottleneck(z)
         qt, confidence = self.decode(pc, mu, self.dual_grasp)
         return qt, confidence
@@ -313,6 +340,86 @@ class GraspSamplerVAE(GraspSampler):
         ])
         return torch.stack([latents[i].flatten() for i in range(len(latents))],
                            dim=-1).to(self.device)
+    def merge_pc_and_gripper_pc(self, pc, gripper_pc):
+        """
+        Merges the object point cloud and gripper point cloud and
+        adds a binary auxiliary feature that indicates whether each point
+        belongs to the object or to the gripper.
+        """
+        # print(gripper_pc.shape)
+        pc_shape = pc.shape
+        gripper_shape = gripper_pc.shape
+        if len(gripper_pc.shape) == 4:
+            #Code snippet that creates seperate combined point clouds for each gripper
+            #make two gripper point clouds of size (batch_size, 6, 3)
+            # pc1 = pc.clone()
+            # pc2 = pc.clone()
+            # gripper_pc1 = gripper_pc[:, 0, :, :]
+            # gripper_pc2 = gripper_pc[:, 1, :, :]
+            # print(gripper_pc1.shape, gripper_pc2.shape)
+            # l0_xyz1 = torch.cat((pc1, gripper_pc1), 1)
+            # print(l0_xyz1.shape)
+            # l0_xyz2 = torch.cat((pc2, gripper_pc2), 1)
+            # labels1 = [
+            #     torch.ones(pc.shape[1], 1, dtype=torch.float32),
+            #     torch.zeros(gripper_pc1.shape[1], 1, dtype=torch.float32)
+            # ]
+            # labels1 = torch.cat(labels1, 0)
+            # labels1.unsqueeze_(0)
+            # labels1 = labels1.repeat(pc_shape[0], 1, 1)
+            # labels2 = [
+            #     torch.ones(pc.shape[1], 1, dtype=torch.float32),
+            #     torch.zeros(gripper_pc2.shape[1], 1, dtype=torch.float32)
+            # ]
+            # labels2 = torch.cat(labels2, 0)
+            # labels2.unsqueeze_(0)
+            # labels2 = labels2.repeat(pc_shape[0], 1, 1)
+            # l0_points1 = torch.cat([l0_xyz1, labels1.to(self.device)],
+            #                        -1).transpose(-1, 1)
+            # l0_points2 = torch.cat([l0_xyz2, labels2.to(self.device)],
+            #                           -1).transpose(-1, 1)
+            # print( torch.cat((l0_xyz1, l0_xyz2), 0).shape, torch.cat((l0_points1, l0_points2), 0).shape)
+            # return torch.cat((l0_xyz1, l0_xyz2), 0), torch.cat((l0_points1, l0_points2), 0)
+            #End of code snippet
+            #Code snippet that creates one point cloud with both grippers
+            gripper_pc1 = gripper_pc[:, 0, :, :]
+            gripper_pc2 = gripper_pc[:, 1, :, :]
+            l0_xyz = torch.cat((pc, gripper_pc1, gripper_pc2), 1)
+            # print(l0_xyz.shape)
+            labels = [
+                torch.ones(pc.shape[1], 1, dtype=torch.float32),
+                torch.zeros(gripper_pc1.shape[1], 1, dtype=torch.float32),
+                torch.zeros(gripper_pc2.shape[1], 1, dtype=torch.float32)
+            ]
+            labels = torch.cat(labels, 0)
+            labels.unsqueeze_(0)
+            labels = labels.repeat(pc_shape[0], 1, 1)
+            l0_points = torch.cat([l0_xyz, labels.to(self.device)],
+                                  -1).transpose(-1, 1)
+            return l0_xyz, l0_points
+
+
+        
+
+        assert (len(pc_shape) == 3)
+        assert (len(gripper_shape) == 3)
+        assert (pc_shape[0] == gripper_shape[0])
+
+        npoints = pc_shape[1]
+        batch_size = pc_shape[0]
+
+        l0_xyz = torch.cat((pc, gripper_pc), 1)
+        labels = [
+            torch.ones(pc.shape[1], 1, dtype=torch.float32),
+            torch.zeros(gripper_pc.shape[1], 1, dtype=torch.float32)
+        ]
+        labels = torch.cat(labels, 0)
+        labels.unsqueeze_(0)
+        labels = labels.repeat(batch_size, 1, 1)
+
+        l0_points = torch.cat([l0_xyz, labels.to(self.device)],
+                              -1).transpose(-1, 1)
+        return l0_xyz, l0_points
 
 
 class GraspSamplerGAN(GraspSampler):

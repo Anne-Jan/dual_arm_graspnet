@@ -53,7 +53,10 @@ class GraspNetModel:
     def set_input(self, data):
         input_pcs = torch.from_numpy(data['pc']).contiguous()
         self.pc_for_visualization = input_pcs
-        input_grasps = torch.from_numpy(data['grasp_rt']).float()
+        if self.opt.merge_pcs_in_vae_encoder:
+            input_grasps= torch.from_numpy(data['target_cps']).float()
+        else:
+            input_grasps = torch.from_numpy(data['grasp_rt']).float()
         #check if the input grasps and pc are not nan
         if torch.isnan(input_pcs).any() or torch.isnan(input_grasps).any():
             print("Input pc or grasps are nan")
@@ -105,6 +108,8 @@ class GraspNetModel:
         
         if self.opt.arch == "evaluator":
             targets = torch.from_numpy(data['labels']).float()
+            
+
         else:
             targets = torch.from_numpy(data['target_cps']).float()
         self.pcs = input_pcs.to(self.device).requires_grad_(self.is_train)
