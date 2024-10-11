@@ -68,7 +68,6 @@ class GraspSamplingData(BaseDataset):
             np.array(output_grasps), self.opt.num_grasps_per_object, mode='rt')
         
         meta['pc'] = np.array([pc] * self.opt.num_grasps_per_object)[:, :, :3]
-        # print(meta['pc'].shape)
 
         if len(np.array(output_grasps).shape) == 4:
             #reshape pos grasp to (num_grasps, 2, 4, 4)

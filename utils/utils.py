@@ -10,7 +10,7 @@ import torch
 from utils.visualization_utils import *
 import yaml
 from easydict import EasyDict as edict
-from sklearn.decomposition import PCA
+# from sklearn.decomposition import PCA
 
 GRIPPER_PC = np.load('gripper_models/panda_pc.npy',
                      allow_pickle=True).item()['points']

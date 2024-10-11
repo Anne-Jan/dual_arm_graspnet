@@ -189,7 +189,7 @@ class BaseDataset(data.Dataset):
         object_model.rescale(json_dict['object_scale'])
         object_model = object_model.mesh
         object_mean = np.mean(object_model.vertices, 0, keepdims=1)
-
+        
         object_model.vertices -= object_mean
         grasps = np.asarray(json_dict['transforms'])
         # print("grasps from file", grasps.shape)

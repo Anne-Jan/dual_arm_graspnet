@@ -400,7 +400,7 @@ def draw_scene_dual(pc,
         gripper_colors.append((colour_ranges[i], np.random.rand(), 1.0 - colour_ranges[i]))
         #generate random colors
         # gripper_colors.append((np.random.rand(), np.random.rand(), np.random.rand()))
-        print(gripper_colors[i])
+        # print(gripper_colors[i])
     # print(len(gripper_colors))
     # print(range(len(grasps)))
 
@@ -447,7 +447,7 @@ def draw_scene_dual(pc,
 
             # if min_score == 1.0:
             #     gripper_color = (0.0, 1.0, 0.0)
-        print("index", ii)
+        # print("index", ii)
         if ii % 2 == 0:
             # print("with index in if", ii)
             #generate a random new color
@@ -471,8 +471,8 @@ def draw_scene_dual(pc,
             pts = np.matmul(grasp_pc, g[:3, :3].T)
             pts += np.expand_dims(g[:3, 3], 0)
             # if isinstance(gripper_color, list):
-            print("printing grasp", ii)
-            print('gripper color', gripper_color)
+            # print("printing grasp", ii)
+            # print('gripper color', gripper_color)
             mlab.plot3d(pts[:, 0],
                         pts[:, 1],
                         pts[:, 2],

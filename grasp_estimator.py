@@ -482,14 +482,22 @@ class GraspEstimator:
             is_between_right = np.logical_and(projections_right > 0, projections_right < gripper_lenght_right)
 
             #calculate the distance between the point and the line
-            def point_to_line_dist(points, line_start, line_end):
-                line_start_to_point = points - line_start
-                line_vector = line_end - line_start
+            # def point_to_line_dist(points, line_start, line_end):
+            #     line_start_to_point = points - line_start
+            #     line_vector = line_end - line_start
                 
-                t = np.matmul(line_start_to_point, line_vector) / np.dot(line_vector, line_vector)
-                t = np.clip(t, 0, 1)
-                projection = line_start + t[:, None] * line_vector
-                return np.linalg.norm(points - projection, axis = 1)
+            #     t = np.matmul(line_start_to_point, line_vector) / np.dot(line_vector, line_vector)
+            #     t = np.clip(t, 0, 1)
+            #     projection = line_start + t[:, None] * line_vector
+            #     return np.linalg.norm(points - projection, axis = 1)
+            def point_to_line_dist(points, line_start, line_end):
+                line = line_end - line_start
+                line_norm = np.linalg.norm(line)
+                if line_norm == 0:
+                    return ValueError("Line start and end are the same")
+                points_start = points - line_start
+                cross_product = np.cross(points_start, line)
+                return np.linalg.norm(cross_product, axis=1) / line_norm
                 
             distances_left = point_to_line_dist(numpy_og_pc, left_cp_left_finger_center, left_cp_right_finger_center)
             distances_right = point_to_line_dist(numpy_og_pc, right_cp_left_finger_center, right_cp_right_finger_center)
@@ -511,6 +519,24 @@ class GraspEstimator:
             min_distance_right = np.min(distances_right, axis = 0)
             is_collision_left = (min_distance_left < collision_threshold).any().item()
             is_collision_right = (min_distance_right < collision_threshold).any().item()
+
+            # left_cp_left_finger = np.array([left_cp[i] for i in [2, 4]])
+            # left_cp_right_finger = np.array([left_cp[i] for i in [3, 5]])
+            # right_cp_left_finger = np.array([right_cp[i] for i in [2, 4]])
+            # right_cp_right_finger = np.array([right_cp[i] for i in [3, 5]])
+            # left_cp_mid = np.array([left_cp[i] for i in [2, 3]])
+            # right_cp_mid = np.array([right_cp[i] for i in [2, 3]])
+            # #Draw a line between the points and check if the distance between the point and the line is smaller than the threshold
+            # left_cp_left_distance = point_to_line_dist(numpy_og_pc, left_cp_left_finger[0], left_cp_right_finger[1])
+            # left_cp_right_distance = point_to_line_dist(numpy_og_pc, left_cp_right_finger[0], left_cp_right_finger[1])
+            # right_cp_left_distance = point_to_line_dist(numpy_og_pc, right_cp_left_finger[0], right_cp_right_finger[1])
+            # right_cp_right_distance = point_to_line_dist(numpy_og_pc, right_cp_right_finger[0], right_cp_right_finger[1])
+            # left_cp_mid_distance = point_to_line_dist(numpy_og_pc, left_cp_mid[0], left_cp_mid[1])
+            # right_cp_mid_distance = point_to_line_dist(numpy_og_pc, right_cp_mid[0], right_cp_mid[1])
+            # is_collision_left = (left_cp_left_distance < collision_threshold).any().item() or (left_cp_right_distance < collision_threshold).any().item() or (left_cp_mid_distance < collision_threshold).any().item()
+            # is_collision_right = (right_cp_left_distance < collision_threshold).any().item() or (right_cp_right_distance < collision_threshold).any().item() or (right_cp_mid_distance < collision_threshold).any().item()
+
+            # print(is_collision_left, is_collision_right)
             # is_collision_left = []
             # is_collision_right = []
             # for point in numpy_og_pc:
@@ -556,7 +582,7 @@ class GraspEstimator:
         # grasps = utils.control_points_from_grasps(control_points, 'tf', pc = None)
         print("ammount of succesfull grasps after", len(succesfull_grasps))
         # control_points = utils.control_points_from_grasps(succesfull_grasps, 'cp', pc = og_pc, scale = self.scale)
-        # control_points = utils.control_points_from_grasps(unsuccesfull_grasps, 'cp', pc = og_pc, scale = self.scale)
+        control_points = utils.control_points_from_grasps(unsuccesfull_grasps, 'cp', pc = og_pc, scale = self.scale)
         grasps = succesfull_grasps
         succes_prob = succesfull_prob
     
