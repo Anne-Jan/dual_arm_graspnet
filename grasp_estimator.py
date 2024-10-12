@@ -582,7 +582,7 @@ class GraspEstimator:
         # grasps = utils.control_points_from_grasps(control_points, 'tf', pc = None)
         print("ammount of succesfull grasps after", len(succesfull_grasps))
         # control_points = utils.control_points_from_grasps(succesfull_grasps, 'cp', pc = og_pc, scale = self.scale)
-        control_points = utils.control_points_from_grasps(unsuccesfull_grasps, 'cp', pc = og_pc, scale = self.scale)
+        # control_points = utils.control_points_from_grasps(unsuccesfull_grasps, 'cp', pc = og_pc, scale = self.scale)
         grasps = succesfull_grasps
         succes_prob = succesfull_prob
     

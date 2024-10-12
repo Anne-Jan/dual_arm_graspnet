@@ -149,7 +149,6 @@ class GraspSampler(nn.Module):
             #Combine the two grasps with size (batch_size, 14)
             predicted_qt = torch.cat((predicted_qtleft, predicted_qtright), -1)
             # predicted_qt = predicted_qtleft.reshape(32, 2, 7).swapaxes(1, 2).reshape(32, 14)
-            # print(predicted_qt.shape)
         else:
             predicted_qt = torch.cat(
                 (F.normalize(self.q(x), p=2, dim=-1), self.t(x)), -1)
@@ -315,19 +314,22 @@ class GraspSamplerVAE(GraspSampler):
         if z is None:
             z = self.sample_latent(pc.shape[0])
         qt, confidence = self.decode(pc, z, self.dual_grasp)
-        predicted_cp = utils.transform_control_points(
-                qt, qt.shape[0], device=self.device, dual_grasp = self.dual_grasp)
-        if len(predicted_cp.shape) == 4:
-            predicted_cp = predicted_cp.reshape(-1, 6, 3)
 
-        mlab.figure(bgcolor=(1, 1, 1))
-        draw_scene(
-                pc[0].cpu().detach().numpy(),
-                # grasps=self.og_grasps,
-                target_cps=predicted_cp,
-            )
-        mlab.show()
-        print(xd)
+        ###CODE SNIPPET TO VISUALIZE THE GENERATED CONTROL POINTS
+        # predicted_cp = utils.transform_control_points(
+        #         qt, qt.shape[0], device=self.device, dual_grasp = self.dual_grasp)
+        # if len(predicted_cp.shape) == 4:
+        #     predicted_cp = predicted_cp.reshape(-1, 6, 3)
+
+        # mlab.figure(bgcolor=(1, 1, 1))
+        # draw_scene(
+        #         pc[0].cpu().detach().numpy(),
+        #         # grasps=self.og_grasps,
+        #         target_cps=predicted_cp,
+        #     )
+        # mlab.show()
+        # print(xd)
+        ###END OF CODE SNIPPET
         
         return qt, confidence, z.squeeze()
 
@@ -465,6 +467,7 @@ class GraspSamplerGAN(GraspSampler):
         #     )
         # mlab.show()
         # print(xd)
+        print("qt", qt.shape, "confidence", confidence.shape)
         return qt, confidence, z.squeeze()
 
     def generate_dense_latents(self, resolution):

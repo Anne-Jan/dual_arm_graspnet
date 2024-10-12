@@ -319,17 +319,23 @@ def draw_scene_dual(pc,
                           pc[:, 2],
                           colormap='plasma')
         else:
+            print("drawing pointcloud of object")
             mlab.points3d(pc[:, 0],
                           pc[:, 1],
                           pc[:, 2],
                           color=(0.1, 0.1, 1),
-                          scale_factor=0.01)
+                          scale_factor=0.01
+                    
+                        #   scale_factor=0.005
+                          )
     elif pc is not None:
+
         if plasma_coloring:
             mlab.points3d(pc[:, 0],
                           pc[:, 1],
                           pc[:, 2],
                           pc_color[:, 0],
+                          scale_factor=0.01,
                           colormap='plasma')
         else:
             rgba = np.zeros((pc.shape[0], 4), dtype=np.uint8)
@@ -349,15 +355,16 @@ def draw_scene_dual(pc,
 
     mid_point = 0.5 * (grasp_pc[2, :] + grasp_pc[3, :])
     zero_point = np.zeros((3, ), np.float32)
-    zero_point[0] -= mid_point[0]
-    zero_point[1] -= mid_point[1]
-    zero_point[2] -= mid_point[2]
-    zero_point[0] -= mid_point[0]
-    zero_point[1] -= mid_point[1]
-    zero_point[2] -= mid_point[2]
-    zero_point[0] -= mid_point[0]
-    zero_point[1] -= mid_point[1]
-    zero_point[2] -= mid_point[2]
+    # zero_point[0] -= mid_point[0]
+    # zero_point[1] -= mid_point[1]
+    # zero_point[2] -= mid_point[2]
+    # zero_point[0] -= mid_point[0]
+    # zero_point[1] -= mid_point[1]
+    # zero_point[2] -= mid_point[2]
+    # zero_point[0] -= mid_point[0]
+    # zero_point[1] -= mid_point[1]
+    # zero_point[2] -= mid_point[2]
+    
     
     # for point in grasp_pc:
     #         point[0] -= mid_point[0]

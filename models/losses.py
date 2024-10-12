@@ -164,7 +164,8 @@ def min_distance_loss(pred_control_points,
                       confidence=None,
                       confidence_weight=None,
                       threshold=None,
-                      device="cpu"):
+                      device="cpu",
+                      dual_grasp=False):
     """
     Computes the minimum distance (L1 distance)between each gt control point 
     and any of the predicted control points.
@@ -192,10 +193,10 @@ def min_distance_loss(pred_control_points,
         error2 = torch.sum(torch.abs(error2), -1)  # L1 distance of error (N_pred, N_gt, M)
         error1 = torch.mean(error1, -1)  # average L1 for all the control points. (N_pred, N_gt)
         error2 = torch.mean(error2, -1)  # average L1 for all the control points. (N_pred, N_gt)
-        print('error1', error1, error2)
+        # print('error1', error1, error2)
         min_distance_error1, closest_index1 = error1.min(0)  #[0]  # take the min distance for each gt control point. (N_gt)
         min_distance_error2, closest_index2 = error2.min(0)  #[0]  # take the min distance for each gt control point. (N_gt)
-        print('min_distance_error1', min_distance_error1.shape, closest_index1.shape)
+        # print('min_distance_error1', min_distance_error1.shape, closest_index1.shape)
         if confidence is not None:
             confidence1 = confidence[:,0]
             confidence2 = confidence[:,1]

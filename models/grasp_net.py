@@ -185,8 +185,8 @@ class GraspNetModel:
         
 
         ###CODE SNIPPET TO VISUALIZE THE PREDICTED CONTROL POINTS
-        # if len(self.og_grasps.shape) == 4:
-        #     self.og_grasps = self.og_grasps.reshape(-1, 4, 4)
+        ## if len(self.og_grasps.shape) == 4:
+        ##     self.og_grasps = self.og_grasps.reshape(-1, 4, 4)
         # if len(predicted_cp.shape) == 4:
         #     predicted_cp = predicted_cp.reshape(-1, 6, 3)
         # # print(self.og_grasps.shape, predicted_cp.shape)
