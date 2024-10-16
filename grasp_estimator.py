@@ -508,61 +508,35 @@ class GraspEstimator:
             #check if one of the points is within the gripper
 
             # check if the point does not collide with the object
-            left_cp_base = np.array([left_cp[i] for i in [0, 1, 2, 3, 4, 5]])
-            right_cp_base = np.array([right_cp[i] for i in [0, 1, 2, 3, 4, 5]])
-            left_cp_i = np.expand_dims(left_cp_base, 1)
-            right_cp_i = np.expand_dims(right_cp_base, 1)
-            pc_expanded = np.expand_dims(numpy_og_pc, 0)
-            distances_left = np.linalg.norm(left_cp_i - pc_expanded, axis = 2)
-            distances_right = np.linalg.norm(right_cp_i - pc_expanded, axis = 2)
-            min_distance_left = np.min(distances_left, axis = 0)
-            min_distance_right = np.min(distances_right, axis = 0)
-            is_collision_left = (min_distance_left < collision_threshold).any().item()
-            is_collision_right = (min_distance_right < collision_threshold).any().item()
+            # left_cp_base = np.array([left_cp[i] for i in [0, 1, 2, 3, 4, 5]])
+            # right_cp_base = np.array([right_cp[i] for i in [0, 1, 2, 3, 4, 5]])
+            # left_cp_i = np.expand_dims(left_cp_base, 1)
+            # right_cp_i = np.expand_dims(right_cp_base, 1)
+            # pc_expanded = np.expand_dims(numpy_og_pc, 0)
+            # distances_left = np.linalg.norm(left_cp_i - pc_expanded, axis = 2)
+            # distances_right = np.linalg.norm(right_cp_i - pc_expanded, axis = 2)
+            # min_distance_left = np.min(distances_left, axis = 0)
+            # min_distance_right = np.min(distances_right, axis = 0)
+            # is_collision_left = (min_distance_left < collision_threshold).any().item()
+            # is_collision_right = (min_distance_right < collision_threshold).any().item()
 
-            # left_cp_left_finger = np.array([left_cp[i] for i in [2, 4]])
-            # left_cp_right_finger = np.array([left_cp[i] for i in [3, 5]])
-            # right_cp_left_finger = np.array([right_cp[i] for i in [2, 4]])
-            # right_cp_right_finger = np.array([right_cp[i] for i in [3, 5]])
-            # left_cp_mid = np.array([left_cp[i] for i in [2, 3]])
-            # right_cp_mid = np.array([right_cp[i] for i in [2, 3]])
-            # #Draw a line between the points and check if the distance between the point and the line is smaller than the threshold
-            # left_cp_left_distance = point_to_line_dist(numpy_og_pc, left_cp_left_finger[0], left_cp_right_finger[1])
-            # left_cp_right_distance = point_to_line_dist(numpy_og_pc, left_cp_right_finger[0], left_cp_right_finger[1])
-            # right_cp_left_distance = point_to_line_dist(numpy_og_pc, right_cp_left_finger[0], right_cp_right_finger[1])
-            # right_cp_right_distance = point_to_line_dist(numpy_og_pc, right_cp_right_finger[0], right_cp_right_finger[1])
-            # left_cp_mid_distance = point_to_line_dist(numpy_og_pc, left_cp_mid[0], left_cp_mid[1])
-            # right_cp_mid_distance = point_to_line_dist(numpy_og_pc, right_cp_mid[0], right_cp_mid[1])
-            # is_collision_left = (left_cp_left_distance < collision_threshold).any().item() or (left_cp_right_distance < collision_threshold).any().item() or (left_cp_mid_distance < collision_threshold).any().item()
-            # is_collision_right = (right_cp_left_distance < collision_threshold).any().item() or (right_cp_right_distance < collision_threshold).any().item() or (right_cp_mid_distance < collision_threshold).any().item()
+            left_cp_left_finger = np.array([left_cp[i] for i in [2, 4]])
+            left_cp_right_finger = np.array([left_cp[i] for i in [3, 5]])
+            right_cp_left_finger = np.array([right_cp[i] for i in [2, 4]])
+            right_cp_right_finger = np.array([right_cp[i] for i in [3, 5]])
+            left_cp_mid = np.array([left_cp[i] for i in [2, 3]])
+            right_cp_mid = np.array([right_cp[i] for i in [2, 3]])
+            #Draw a line between the points and check if the distance between the point and the line is smaller than the threshold
+            left_cp_left_distance = point_to_line_dist(numpy_og_pc, left_cp_left_finger[0], left_cp_right_finger[1])
+            left_cp_right_distance = point_to_line_dist(numpy_og_pc, left_cp_right_finger[0], left_cp_right_finger[1])
+            right_cp_left_distance = point_to_line_dist(numpy_og_pc, right_cp_left_finger[0], right_cp_right_finger[1])
+            right_cp_right_distance = point_to_line_dist(numpy_og_pc, right_cp_right_finger[0], right_cp_right_finger[1])
+            left_cp_mid_distance = point_to_line_dist(numpy_og_pc, left_cp_mid[0], left_cp_mid[1])
+            right_cp_mid_distance = point_to_line_dist(numpy_og_pc, right_cp_mid[0], right_cp_mid[1])
+            is_collision_left = (left_cp_left_distance < collision_threshold).any().item() or (left_cp_right_distance < collision_threshold).any().item() or (left_cp_mid_distance < collision_threshold).any().item()
+            is_collision_right = (right_cp_left_distance < collision_threshold).any().item() or (right_cp_right_distance < collision_threshold).any().item() or (right_cp_mid_distance < collision_threshold).any().item()
 
-            # print(is_collision_left, is_collision_right)
-            # is_collision_left = []
-            # is_collision_right = []
-            # for point in numpy_og_pc:
-            #     distance_left = utils.distance_by_translation_point(left_cp, point)
-            #     distance_right = utils.distance_by_translation_point(right_cp, point)
-                
-            #     for dist in distance_left:
-            #         if dist < collision_threshold:
-            #             is_collision_left.append(True)
-            #             break
-            #     for dist in distance_right:
-            #         if dist < collision_threshold:
-            #             is_collision_right.append(True)
-            #             break
-            #     if len(is_collision_left) == 0:
-            #         is_collision_left.append(False)
-            #     if len(is_collision_right) == 0:
-            #         is_collision_right.append(False)
-            #     is_collision_left.append(distance_left < collision_threshold)
-            #     is_collision_right.append(distance_right < collision_threshold)
-            # is_collision_left = np.array(is_collision_left)
-            # is_collision_right = np.array(is_collision_right)
-            # print(is_collision_left, is_collision_right)
-            # #if any point is colliding with the object, the grasp is not succesfull
-            # is_collision_left = is_collision_left.any()
-            # is_collision_right = is_collision_right.any()
+            
 
             #if the point is within the gripper and does not collide with the object, add the grasp to the list of succesfull grasps
             if np.any(is_within_left) and np.any(is_within_right) and is_collision_left == False and is_collision_right == False:
@@ -582,7 +556,7 @@ class GraspEstimator:
         # grasps = utils.control_points_from_grasps(control_points, 'tf', pc = None)
         print("ammount of succesfull grasps after", len(succesfull_grasps))
         # control_points = utils.control_points_from_grasps(succesfull_grasps, 'cp', pc = og_pc, scale = self.scale)
-        # control_points = utils.control_points_from_grasps(unsuccesfull_grasps, 'cp', pc = og_pc, scale = self.scale)
+        control_points = utils.control_points_from_grasps(unsuccesfull_grasps, 'cp', pc = og_pc, scale = self.scale)
         grasps = succesfull_grasps
         succes_prob = succesfull_prob
     

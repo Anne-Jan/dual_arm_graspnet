@@ -79,6 +79,12 @@ class GraspEvaluatorData(BaseDataset):
         meta['good_og_grasps'] = data[1][:9,:,:,:]
         #Later ones that are bad, sometimes very bad
         meta['bad_og_grasps'] = data[1][9:,:,:,:]
+        #shuffle the labels and the grasp rt to make sure that the network is not overfitting
+        shuffle_idx = np.random.permutation(len(meta['labels']))
+        meta['labels'] = meta['labels'][shuffle_idx]
+        meta['grasp_rt'] = meta['grasp_rt'][shuffle_idx]
+        meta['quality'] = meta['quality'][shuffle_idx]
+        # print(meta['labels'])
         #print num of unique grasps
         # print("num_unique_pos_grasps", len(np.unique(meta['good_og_grasps'], axis=0)))
         # print("num_unique_neg_grasps", len(np.unique(meta['bad_og_grasps'], axis=0)))
