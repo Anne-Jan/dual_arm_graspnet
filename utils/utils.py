@@ -447,6 +447,7 @@ def transform_control_points(gt_grasps, batch_size, mode='qt', device="cpu", dua
             # print("shape", gt_control_points1.shape, gt_control_points2.shape)
             #Combine them into shape (batch_size x 2 x 6 x 3)
             # print(torch.stack((gt_control_points1, gt_control_points2), 1).shape)
+            # print(gt_control_points1[0])
             return torch.stack((gt_control_points1, gt_control_points2), 1)
 
             print("shape", gt_grasps.shape)

@@ -183,63 +183,53 @@ def min_distance_loss(pred_control_points,
     #calc the loss for dual grasp
     if len(pred_shape) == 4:
         # #split the tensor in two bs,6,3 from bs,2,6,3
-        # pred_control_points1 = pred_control_points[:,0,:,:]
-        # pred_control_points2 = pred_control_points[:,1,:,:]
-        # gt_control_points1 = gt_control_points[:,0,:,:]
-        # gt_control_points2 = gt_control_points[:,1,:,:]
-        # error1 = pred_control_points1.unsqueeze(1) - gt_control_points1.unsqueeze(0)
-        # error2 = pred_control_points2.unsqueeze(1) - gt_control_points2.unsqueeze(0)
-        # error1 = torch.sum(torch.abs(error1), -1)  # L1 distance of error (N_pred, N_gt, M)
-        # error2 = torch.sum(torch.abs(error2), -1)  # L1 distance of error (N_pred, N_gt, M)
-        # error1 = torch.mean(error1, -1)  # average L1 for all the control points. (N_pred, N_gt)
-        # error2 = torch.mean(error2, -1)  # average L1 for all the control points. (N_pred, N_gt)
-        # # print('error1', error1, error2)
-        # min_distance_error1, closest_index1 = error1.min(0)  #[0]  # take the min distance for each gt control point. (N_gt)
-        # min_distance_error2, closest_index2 = error2.min(0)  #[0]  # take the min distance for each gt control point. (N_gt)
-        # # print('min_distance_error1', min_distance_error1.shape, closest_index1.shape)
-        # if confidence is not None:
-        #     confidence1 = confidence[:,0]
-        #     confidence2 = confidence[:,1]
-        #     selected_confidence1 = torch.nn.functional.one_hot(
-        #         closest_index1,
-        #         num_classes=closest_index1.shape[0]).float()
-        #     selected_confidence1 *= confidence1
-        #     selected_confidence1 = torch.sum(selected_confidence1, -1)  # N_gt
-        #     min_distance_error1 *= selected_confidence1
-        #     selected_confidence2 = torch.nn.functional.one_hot(
-        #         closest_index2,
-        #         num_classes=closest_index2.shape[0]).float()
-        #     selected_confidence2 *= confidence2
-        #     selected_confidence2 = torch.sum(selected_confidence2, -1)  # N_gt
-        #     min_distance_error2 *= selected_confidence2
-        #     confidence_term = torch.mean(
-        #         torch.log(torch.max(
-        #             confidence,
-        #             torch.tensor(1e-4).to(device)))) * confidence_weight
-        #     min_distance_error = torch.mean(min_distance_error1 + min_distance_error2)
-        error = pred_control_points.unsqueeze(2) - gt_control_points.unsqueeze(1)
-        error = torch.sum(torch.abs(error), dim=-1)  # (bs, 2, 6, 6) L1 distance of error
-
-        # Average L1 loss over the control points
-        error = torch.mean(error, dim=-1)  # (bs, 2, 6)
-
-        # Now compute the minimum distance for each pair of grasps
-        min_distance_error, closest_index = error.min(1)  # (bs, 6), for each pair (min across pairs)
-
-        # If confidence is provided, apply confidence weighting
+        pred_control_points1 = pred_control_points[:,0,:,:]
+        pred_control_points2 = pred_control_points[:,1,:,:]
+        gt_control_points1 = gt_control_points[:,0,:,:]
+        gt_control_points2 = gt_control_points[:,1,:,:]
+        error1 = pred_control_points1.unsqueeze(1) - gt_control_points1.unsqueeze(0)
+        error2 = pred_control_points2.unsqueeze(1) - gt_control_points2.unsqueeze(0)
+        error1 = torch.sum(torch.abs(error1), -1)  # L1 distance of error (N_pred, N_gt, M)
+        error2 = torch.sum(torch.abs(error2), -1)  # L1 distance of error (N_pred, N_gt, M)
+        error1 = torch.mean(error1, -1)  # average L1 for all the control points. (N_pred, N_gt)
+        error2 = torch.mean(error2, -1)  # average L1 for all the control points. (N_pred, N_gt)
+        # print('error1', error1, error2)
+        min_distance_error1, closest_index1 = error1.min(0)  #[0]  # take the min distance for each gt control point. (N_gt)
+        min_distance_error2, closest_index2 = error2.min(0)  #[0]  # take the min distance for each gt control point. (N_gt)
+        # print('min_distance_error1', min_distance_error1.shape, closest_index1.shape)
+        if confidence is not None:
+            confidence1 = confidence[:,0]
+            confidence2 = confidence[:,1]
+            selected_confidence1 = torch.nn.functional.one_hot(
+                closest_index1,
+                num_classes=closest_index1.shape[0]).float()
+            selected_confidence1 *= confidence1
+            selected_confidence1 = torch.sum(selected_confidence1, -1)  # N_gt
+            min_distance_error1 *= selected_confidence1
+            selected_confidence2 = torch.nn.functional.one_hot(
+                closest_index2,
+                num_classes=closest_index2.shape[0]).float()
+            selected_confidence2 *= confidence2
+            selected_confidence2 = torch.sum(selected_confidence2, -1)  # N_gt
+            min_distance_error2 *= selected_confidence2
+            confidence_term = torch.mean(
+                torch.log(torch.max(
+                    confidence,
+                    torch.tensor(1e-4).to(device)))) * confidence_weight
         if confidence is not None:
             confidence1 = confidence[:, 0]  # (bs, 6)
             confidence2 = confidence[:, 1]  # (bs, 6)
             
-            selected_confidence1 = torch.nn.functional.one_hot(closest_index, num_classes=closest_index.shape[0]).float()
+            selected_confidence1 = torch.nn.functional.one_hot(closest_index1, num_classes=closest_index1.shape[0]).float()
             selected_confidence1 *= confidence1
             selected_confidence1 = torch.sum(selected_confidence1, dim=-1)  # (bs,)
 
-            selected_confidence2 = torch.nn.functional.one_hot(closest_index, num_classes=closest_index.shape[0]).float()
+            selected_confidence2 = torch.nn.functional.one_hot(closest_index2, num_classes=closest_index2.shape[0]).float()
             selected_confidence2 *= confidence2
             selected_confidence2 = torch.sum(selected_confidence2, dim=-1)  # (bs,)
-
-            min_distance_error *= selected_confidence1 + selected_confidence2
+            min_distance_error1 *= selected_confidence1
+            min_distance_error2 *= selected_confidence2
+            min_distance_error = torch.mean(min_distance_error1 + min_distance_error2)
 
             # Add confidence term
             confidence_term = torch.mean(torch.log(torch.max(confidence, torch.tensor(1e-4).to(device)))) * confidence_weight

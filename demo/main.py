@@ -159,7 +159,7 @@ def main(args):
             # print(np.array(generated_grasps).shape)
             if generated_grasps is None:
                 S = np.diag([0.2, 0.2, 0.2, 1])
-                pc, _ = estimator.prepare_pc(data["pc"].squeeze())
+                pc, _ = estimator.prepare_pc(data["pc"].squeeze(), data['all_target_cps'].squeeze())
                 generated_grasps, _, _ = estimator.generate_grasps(pc)
                 #reshape to n by 14
                 # generated_grasps = generated_grasps.reshape(-1, 14)

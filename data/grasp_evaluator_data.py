@@ -45,6 +45,9 @@ class GraspEvaluatorData(BaseDataset):
             data = self.get_nonuniform_evaluator_data(path)
         gt_control_points = utils.transform_control_points_numpy(
             data[1], self.opt.num_grasps_per_object, mode='rt')
+        print(data[8].shape)
+        all_gt_control_points = utils.transform_control_points_numpy(
+            data[8], len(data[8]), mode='rt')
 
 
         
@@ -72,6 +75,8 @@ class GraspEvaluatorData(BaseDataset):
         meta['pc_pose'] = data[4]
         meta['cad_path'] = data[5]
         meta['cad_scale'] = data[6]
+        meta['all_target_grasps'] = all_gt_control_points[:, :, :, :3]
+        # print(meta['all_target_grasps'].shape)
         # meta['og_grasps'] = data[7]
         # #First ones that are good
         # print(len(data[1]   ))
@@ -231,9 +236,9 @@ class GraspEvaluatorData(BaseDataset):
         
         # print(self.ratio_hardnegative,self.collision_hard_neg_max_translation, self.collision_hard_neg_min_translation, self.collision_hard_neg_max_rotation, self.collision_hard_neg_min_rotation, self.collision_hard_neg_num_perturbations)
 
-        pos_grasps, pos_qualities, neg_grasps, neg_qualities, obj_mesh, cad_path, cad_scale = self.read_grasp_file(
+        pos_grasps, pos_qualities, neg_grasps, neg_qualities, obj_mesh, cad_path, cad_scale, all_grasps = self.read_grasp_file(
             path)
-       
+        all_grasps = all_grasps.copy()
         output_pcs = []
         output_grasps = []
         output_qualities = []
@@ -373,4 +378,4 @@ class GraspEvaluatorData(BaseDataset):
         output_qualities = np.asarray(output_qualities, dtype=np.float32)
         output_pc_poses = np.asarray(output_pc_poses, dtype=np.float32)
         # print(np.array(positive_grasps).shape)
-        return output_pcs, output_grasps, output_labels, output_qualities, output_pc_poses, output_cad_paths, output_cad_scales, np.array(positive_grasps)#, meta#, np.array(positive_grasps)
+        return output_pcs, output_grasps, output_labels, output_qualities, output_pc_poses, output_cad_paths, output_cad_scales, np.array(positive_grasps), all_grasps#, meta#, np.array(positive_grasps)

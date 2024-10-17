@@ -155,19 +155,19 @@ class BaseDataset(data.Dataset):
     def read_grasp_file(self, path, return_all_grasps=False):
         file_name = path
         if self.caching and file_name in self.cache:
-            pos_grasps, pos_qualities, neg_grasps, neg_qualities, cad, cad_path, cad_scale = copy.deepcopy(
+            pos_grasps, pos_qualities, neg_grasps, neg_qualities, cad, cad_path, cad_scale, all_grasps = copy.deepcopy(
                 self.cache[file_name])
-            return pos_grasps, pos_qualities, neg_grasps, neg_qualities, cad, cad_path, cad_scale
-        pos_grasps, pos_qualities, neg_grasps, neg_qualities, cad, cad_path, cad_scale = self.read_object_grasp_data(
+            return pos_grasps, pos_qualities, neg_grasps, neg_qualities, cad, cad_path, cad_scale, all_grasps
+        pos_grasps, pos_qualities, neg_grasps, neg_qualities, cad, cad_path, cad_scale, all_grasps = self.read_object_grasp_data(
             path,
             ratio_of_grasps_to_be_used=self.opt.grasps_ratio,
             return_all_grasps=return_all_grasps)
 
         if self.caching:
             self.cache[file_name] = (pos_grasps, pos_qualities, neg_grasps,
-                                     neg_qualities, cad, cad_path, cad_scale)
+                                     neg_qualities, cad, cad_path, cad_scale, all_grasps)
             return copy.deepcopy(self.cache[file_name])
-        return pos_grasps, pos_qualities, neg_grasps, neg_qualities, cad, cad_path, cad_scale
+        return pos_grasps, pos_qualities, neg_grasps, neg_qualities, cad, cad_path, cad_scale, all_grasps
 
     def read_object_grasp_data(self,
                                json_path,
@@ -230,6 +230,8 @@ class BaseDataset(data.Dataset):
             except KeyError:
                 heuristic_qualities = np.ones(flex_qualities.shape)
         # print(flex_qualities.shape, heuristic_qualities.shape)
+        all_grasps = grasps.copy()
+        # print("all grasps", all_grasps.shape)
         if len(grasps.shape) == 4:
             successful_mask = np.where(metric_scores >= 2.4)
             negative_mask = np.where(metric_scores < 2.4)
@@ -317,7 +319,7 @@ class BaseDataset(data.Dataset):
             num_positive_grasps = positive_grasps.shape[0]
             num_negative_grasps = negative_grasps.shape[0]
         return positive_grasps, positive_qualities, negative_grasps, negative_qualities, object_model, os.path.join(
-            root_folder, json_dict['object']), json_dict['object_scale']
+            root_folder, json_dict['object']), json_dict['object_scale'], all_grasps
 
     def sample_grasp_indexes(self, n, grasps, qualities):
         """

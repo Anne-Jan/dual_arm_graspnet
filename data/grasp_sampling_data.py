@@ -21,7 +21,7 @@ class GraspSamplingData(BaseDataset):
 
     def __getitem__(self, index):
         path = self.paths[index]
-        pos_grasps, pos_qualities, _, _, _, cad_path, cad_scale = self.read_grasp_file(
+        pos_grasps, pos_qualities, _, _, _, cad_path, cad_scale, all_grasps_available = self.read_grasp_file(
             path)
         meta = {}
         try:
@@ -66,6 +66,8 @@ class GraspSamplingData(BaseDataset):
                 output_grasps.append(camera_pose.dot(selected_grasp))
         gt_control_points = utils.transform_control_points_numpy(
             np.array(output_grasps), self.opt.num_grasps_per_object, mode='rt')
+        all_gt_control_points = utils.transform_control_points_numpy(
+            np.array(all_grasps_available), len(all_grasps_available), mode='rt')
         
         meta['pc'] = np.array([pc] * self.opt.num_grasps_per_object)[:, :, :3]
 
@@ -90,6 +92,8 @@ class GraspSamplingData(BaseDataset):
             meta['grasp_rt'] = np.array(output_grasps).reshape(
                 len(output_grasps), -1)
             meta['target_cps'] = np.array(gt_control_points[:, :, :, :3])
+            meta['all_target_cps'] = np.array(all_gt_control_points[:, :, :, :3])
+            # print(meta['all_target_cps'].shape)
             # meta['grasp_rt'] = np.array(output_grasps).reshape(
             #     len(output_grasps), 2, -1)
         else:

@@ -65,8 +65,10 @@ class GraspEstimator:
     def generate_and_refine_grasps(
         self,
         pc,
+        all_target_cps
     ):
         pc_list, pc_mean = self.prepare_pc(pc)
+        self.all_target_cps = all_target_cps
         grasps_list, confidence_list, z_list = self.generate_grasps(pc_list)
         print("grasps per pc",grasps_list[0].shape)
         inlier_indices = utils.get_inlier_grasp_indices(grasps_list,
@@ -559,5 +561,24 @@ class GraspEstimator:
         control_points = utils.control_points_from_grasps(unsuccesfull_grasps, 'cp', pc = og_pc, scale = self.scale)
         grasps = succesfull_grasps
         succes_prob = succesfull_prob
+        ious = self.calculate_iou(control_points, self.all_target_cps, succes_prob)
+        print("ious", ious)
     
         return grasps, succes_prob
+    
+    def calculate_iou(self, predicted_grasps_cps, target_grasps_cps, predicted_prob):
+        ###Calculate for each predicted grasp if it is similar to a target grasp
+        ###The similarity is calculated by the intersection over union
+        ###The intersection is the amount of points that are in both the predicted grasp and the target grasp
+        ###The union is the amount of points that are in the predicted grasp or the target grasp
+        ###The IoU is the intersection divided by the union
+        ###The higher the IoU, the better the predicted grasp is
+        ious = []
+        for i, predicted_grasp_cps in enumerate(predicted_grasps_cps):
+            iou = []
+            for target_grasp_cps in target_grasps_cps:
+                intersection = np.intersect1d(predicted_grasp_cps, target_grasp_cps)
+                union = np.union1d(predicted_grasp_cps, target_grasp_cps)
+                iou.append(len(intersection) / len(union))
+            ious.append(iou)
+        return ious
