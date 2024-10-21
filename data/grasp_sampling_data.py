@@ -64,6 +64,9 @@ class GraspSamplingData(BaseDataset):
                 output_grasps.append(selected_grasp)
             else:
                 output_grasps.append(camera_pose.dot(selected_grasp))
+        for grasp in all_grasps_available:
+            grasp[0] = camera_pose.dot(grasp[0])
+            grasp[1] = camera_pose.dot(grasp[1])
         gt_control_points = utils.transform_control_points_numpy(
             np.array(output_grasps), self.opt.num_grasps_per_object, mode='rt')
         all_gt_control_points = utils.transform_control_points_numpy(
@@ -93,6 +96,7 @@ class GraspSamplingData(BaseDataset):
                 len(output_grasps), -1)
             meta['target_cps'] = np.array(gt_control_points[:, :, :, :3])
             meta['all_target_cps'] = np.array(all_gt_control_points[:, :, :, :3])
+            meta['all_grasp_rt'] = np.array(all_grasps_available)
             # print(meta['all_target_cps'].shape)
             # meta['grasp_rt'] = np.array(output_grasps).reshape(
             #     len(output_grasps), 2, -1)

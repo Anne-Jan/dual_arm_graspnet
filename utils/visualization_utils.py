@@ -290,10 +290,18 @@ def draw_scene_dual(pc,
    """
     max_grasps = 1000
     grasps = np.array(grasps)
-
     if grasp_scores is not None:
         grasp_scores = np.array(grasp_scores)
-    print('grasps', grasps.shape, grasp_scores.shape)
+    if len(grasps)!=0:
+        print('grasps', grasps.shape)
+    else:
+        if target_cps is not None:
+            for ii in range(len(target_cps)):
+                mlab.points3d(target_cps[ii, :, 0],
+                                target_cps[ii, :, 1],
+                                target_cps[ii, :, 2],
+                                color=(1.0, 0.0, 0),
+                                scale_factor=0.01)
     if len(grasps) > max_grasps:
 
         print('Downsampling grasps, there are too many')

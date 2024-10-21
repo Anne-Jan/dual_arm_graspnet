@@ -370,6 +370,10 @@ class GraspEvaluatorData(BaseDataset):
                 output_grasps[iter][1] = camera_pose.dot(output_grasps[iter][1])
             else:
                 output_grasps[iter] = camera_pose.dot(output_grasps[iter])
+
+        for idx in range(len(all_grasps)):
+            all_grasps[idx][0] = camera_pose.dot(all_grasps[idx][0])
+            all_grasps[idx][1] = camera_pose.dot(all_grasps[idx][1])
         # print(self.collision_hard_neg_queue[
         #         path].qsize())
         output_pcs = np.asarray(output_pcs, dtype=np.float32)
@@ -378,4 +382,4 @@ class GraspEvaluatorData(BaseDataset):
         output_qualities = np.asarray(output_qualities, dtype=np.float32)
         output_pc_poses = np.asarray(output_pc_poses, dtype=np.float32)
         # print(np.array(positive_grasps).shape)
-        return output_pcs, output_grasps, output_labels, output_qualities, output_pc_poses, output_cad_paths, output_cad_scales, np.array(positive_grasps), all_grasps#, meta#, np.array(positive_grasps)
+        return output_pcs, output_grasps, output_labels, output_qualities, output_pc_poses, output_cad_paths, output_cad_scales, np.array(positive_grasps), np.array(all_grasps)#, meta#, np.array(positive_grasps)

@@ -10,6 +10,8 @@ import trimesh.transformations as tra
 import copy
 import os
 from utils import utils
+from scipy.spatial import ConvexHull
+import pymesh
 
 class GraspEstimator:
     """
@@ -70,7 +72,7 @@ class GraspEstimator:
         pc_list, pc_mean = self.prepare_pc(pc)
         self.all_target_cps = all_target_cps
         grasps_list, confidence_list, z_list = self.generate_grasps(pc_list)
-        print("grasps per pc",grasps_list[0].shape)
+        # print("grasps per pc",grasps_list[0].shape)
         inlier_indices = utils.get_inlier_grasp_indices(grasps_list,
                                                         torch.zeros(1, 3).to(
                                                             self.device),
@@ -113,7 +115,18 @@ class GraspEstimator:
         refine_indexes, sample_indexes = np.where(selection_mask)
         success_prob = improved_success[refine_indexes,
                                         sample_indexes].tolist()
-        grasps, success_prob = self.final_selection(grasps, success_prob, pc[0])
+        extra_grasps, extra_success_prob = self.final_selection(grasps, success_prob, pc[0])
+        #for each of the grasps in extra_grasps, create a pair with each other grasp in the list withoud duplicates
+        if extra_grasps != None:
+            new_grasps = []
+            for grasp in extra_grasps:
+                for other_grasp in extra_grasps:
+                    if np.array_equal(grasp, other_grasp):
+                        continue
+                    else:
+                        new_grasps.append(grasp)
+                        new_grasps.append(other_grasp)
+            print("ammount of grasps after", np.array(new_grasps).shape, np.array(grasps).shape)
         return grasps, success_prob
 
     def prepare_pc(self, pc):
@@ -557,28 +570,11 @@ class GraspEstimator:
 
         # grasps = utils.control_points_from_grasps(control_points, 'tf', pc = None)
         print("ammount of succesfull grasps after", len(succesfull_grasps))
-        # control_points = utils.control_points_from_grasps(succesfull_grasps, 'cp', pc = og_pc, scale = self.scale)
-        control_points = utils.control_points_from_grasps(unsuccesfull_grasps, 'cp', pc = og_pc, scale = self.scale)
+        if len(succesfull_grasps) == 0:
+            return None, None
+        # sucessfull_control_points = utils.control_points_from_grasps(succesfull_grasps, 'cp', pc = og_pc, scale = self.scale)
+        # control_points = utils.control_points_from_grasps(unsuccesfull_grasps, 'cp', pc = og_pc, scale = self.scale)
         grasps = succesfull_grasps
         succes_prob = succesfull_prob
-        ious = self.calculate_iou(control_points, self.all_target_cps, succes_prob)
-        print("ious", ious)
     
         return grasps, succes_prob
-    
-    def calculate_iou(self, predicted_grasps_cps, target_grasps_cps, predicted_prob):
-        ###Calculate for each predicted grasp if it is similar to a target grasp
-        ###The similarity is calculated by the intersection over union
-        ###The intersection is the amount of points that are in both the predicted grasp and the target grasp
-        ###The union is the amount of points that are in the predicted grasp or the target grasp
-        ###The IoU is the intersection divided by the union
-        ###The higher the IoU, the better the predicted grasp is
-        ious = []
-        for i, predicted_grasp_cps in enumerate(predicted_grasps_cps):
-            iou = []
-            for target_grasp_cps in target_grasps_cps:
-                intersection = np.intersect1d(predicted_grasp_cps, target_grasp_cps)
-                union = np.union1d(predicted_grasp_cps, target_grasp_cps)
-                iou.append(len(intersection) / len(union))
-            ious.append(iou)
-        return ious

@@ -216,7 +216,7 @@ class GraspSamplerVAE(GraspSampler):
         self.latent_space = nn.ModuleList([mu, logvar])
 
     def encode(self, xyz, xyz_features):
-        print(xyz.shape, xyz_features.shape)
+        # print(xyz.shape, xyz_features.shape)
         for module in self.encoder[0]:
             xyz, xyz_features = module(xyz, xyz_features)
         return self.encoder[1](xyz_features.squeeze(-1))
@@ -468,7 +468,7 @@ class GraspSamplerGAN(GraspSampler):
         #     )
         # mlab.show()
         # print(xd)
-        print("qt", qt.shape, "confidence", confidence.shape)
+        # print("qt", qt.shape, "confidence", confidence.shape)
         return qt, confidence, z.squeeze()
 
     def generate_dense_latents(self, resolution):
