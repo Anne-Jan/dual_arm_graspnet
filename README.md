@@ -1,5 +1,7 @@
 
-# 6-DoF GraspNet: Variational Grasp Generation for Object Manipulation
+# Dual-Arm Implementation of 6-DoF GraspNet: Variational Grasp Generation for Object Manipulation
+This is an adaption of (https://github.com/jsll/pytorch_6dof-graspnet) for dual-arm object manipulation. The following instructions are from the original repository. Further down are the instructions to train the dual-arm implementation.
+This repository also has a seperate branch for training the VAE and GAN with split encoder/decoder and generator respectively for left and right arm on the branch `split_architectures`.
 
 This is a PyTorch implementation of [6-DoF
 GraspNet](https://arxiv.org/abs/1905.10520). The original Tensorflow
@@ -119,10 +121,10 @@ To train the grasp sampler (vae) with a configuration that works on a gpu with 8
 python3 train.py  --arch vae  --dataset_root_folder shapenet_models/da2_dataset/  --num_grasps_per_object 32 --niter 1000 --niter_decay 10000 --save_epoch_freq 50 --save_latest_freq 250 --run_test_freq 10 --dual_grasp True
 ```
 
-To look at the performance after training run (WIP)"
+To look at the performance after training run"
 
 ```shell
-python -m demo.main --grasp_sampler_folder checkpoints/vae_lr_0002_bs_32_scale_1_npoints_128_radius_02_latent_size_2/ --refinement_method gradient --dual_grasp
+python3 -m demo.main --grasp_sampler_folder checkpoints/vae/1_obj_small_data_unmergerd_vae_lr_0002_bs_32_scale_1_npoints_128_radius_02_latent_size_2/ --refinement_method gradient --dual_grasp --train_data --dataset_root_folder shapenet_models/da2_dataset_small/ --grasp_evaluator_folder checkpoints/evaluator/5_obj_small_datas_02_evaluator_lr_0002_bs_640_scale_1_npoints_128_radius_02/ --num_objects_to_show 20 --object_scale 0.3 --num_grasp_samples 2500
 ```
 
 ## DA2 Dataset Visualisation Code Snippets
