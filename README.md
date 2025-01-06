@@ -179,7 +179,7 @@ To submit a training job in Habrok, you must create a script e.g. `train_habrok_
 #SBATCH --gpus-per-node=v100:1
 #SBATCH --output=job-%j.log
 
-cd /home1/sXXXXXX/graspnetbackup
+cd /home1/sXXXXXX/dual_arm_graspnet
 module load CUDA/11.7.0
 module load Anaconda3 
 conda activate
