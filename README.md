@@ -113,6 +113,9 @@ Similar structure, can be downloaded from [here](https://drive.google.com/file/d
 
 These three folders should be present under `shapenet_models/da2_dataset_small/`
 
+## Scripts used to adapt the DA2 dataset
+The scripts with some accompanying instructions can be found by switching to the branch `helper_code`
+
 ## Training Dual grasp
 
 To train the grasp sampler (vae) with a configuration that works on a gpu with 8GB vram run:
