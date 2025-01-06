@@ -121,7 +121,7 @@ The file `models/networks.py` creates the VAE, so the encoder and decoder, as we
 
 The dataloader part is handled by the files `data/base_dataset.py` (here the scaling occurs) and `data/grasp_sampling_data.py` for the VAE and `data/grasp_evaluator_data.py` for the evaluator model. On `lines 91-92` in `grasp_sampling.py` the grasp poses get flattened and those are used as input for the model together with the PC.
 
-The file `utils/utils.py` contains multiple functionts, most importantly the `get_control_point_tensor()` and `transform_control_points()` which transforms the sampled quaternions and translations into control points.
+The file `utils/utils.py` contains multiple functions, most importantly the `get_control_point_tensor()` and `transform_control_points()` which transforms the sampled quaternions and translations into control points.
 
 
 ## Running in Habrok
