@@ -149,7 +149,7 @@ conda activate DA2graspnet
 conda install pytorch==1.13.0 torchvision==0.14.0 torchaudio==0.13.0 pytorch-cuda=11.7 -c pytorch -c nvidia
 pip install --upgrade pip setuptools wheel
 module load CUDA/11.7.0
-git clone https://github.com/Anne-Jan/graspnetbackup.git
+git clone https://github.com/Anne-Jan/dual_arm_graspnet.git
 cd graspnetbackup
 git clone https://github.com/erikwijmans/Pointnet2_PyTorch
 cd Pointnet2_PyTorch && pip install -r requirements.txt
