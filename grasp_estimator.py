@@ -112,21 +112,24 @@ class GraspEstimator:
         grasps = utils.rot_and_trans_to_grasps(improved_eulers, improved_ts,
                                                selection_mask, scale = self.scale)
         # utils.denormalize_grasps(grasps, pc_mean)
+        #for each grasp in the list, create a pair with each other grasp in the list without duplicates
+        # new_grasps = []
+        # for grasp in grasps:
+        #     for other_grasp in grasps:
+        #         if np.array_equal(grasp, other_grasp):
+        #             continue
+        #         else:
+        #             new_grasps.append(grasp)
+        #             new_grasps.append(other_grasp)
+        # grasps = new_grasps
         refine_indexes, sample_indexes = np.where(selection_mask)
         success_prob = improved_success[refine_indexes,
                                         sample_indexes].tolist()
+        # print("ammount of grasps before", np.array(grasps).shape)
         extra_grasps, extra_success_prob = self.final_selection(grasps, success_prob, pc[0])
-        #for each of the grasps in extra_grasps, create a pair with each other grasp in the list withoud duplicates
-        if extra_grasps != None:
-            new_grasps = []
-            for grasp in extra_grasps:
-                for other_grasp in extra_grasps:
-                    if np.array_equal(grasp, other_grasp):
-                        continue
-                    else:
-                        new_grasps.append(grasp)
-                        new_grasps.append(other_grasp)
-            print("ammount of grasps after", np.array(new_grasps).shape, np.array(grasps).shape)
+        grasps = extra_grasps
+        success_prob = extra_success_prob
+        # print("ammount of grasps after", np.array(extra_grasps).shape, len(extra_success_prob))
         return grasps, success_prob
 
     def prepare_pc(self, pc):
@@ -235,6 +238,7 @@ class GraspEstimator:
                                                             grasp_translations1, grasp_translations2,
                                                             last_success, og_pc)
                     grasp_eulers = torch.cat((grasp_eulers1, grasp_eulers2), -1)
+
                     grasp_translations = torch.cat((grasp_translations1, grasp_translations2), -1)
                     improved_success.append(success_prob.cpu().data.numpy())
                     improved_eulers.append(grasp_eulers.cpu().data.numpy())
@@ -448,9 +452,9 @@ class GraspEstimator:
 
                 
                
-    def final_selection(self, grasps, succes_prob, og_pc, collision_threshold = 0.005, threshold_distance = 0.005):
+    def final_selection(self, grasps, succes_prob, og_pc, collision_threshold = 0.0001, threshold_distance = 0.005):
         control_points = utils.control_points_from_grasps(grasps, 'cp', pc = None, scale = self.scale)
-        print("ammount of grasps before", len(grasps), np.array(grasps).shape, control_points.shape)
+        # print("ammount of grasps before", len(grasps), np.array(grasps).shape, control_points.shape)
         #For each grasp pair, check if the control points enclose the point cloud
         #If they do, then add the grasp to the list of succesfull grasps
         succesfull_grasps = []
@@ -523,34 +527,17 @@ class GraspEstimator:
             #check if one of the points is within the gripper
 
             # check if the point does not collide with the object
-            # left_cp_base = np.array([left_cp[i] for i in [0, 1, 2, 3, 4, 5]])
-            # right_cp_base = np.array([right_cp[i] for i in [0, 1, 2, 3, 4, 5]])
-            # left_cp_i = np.expand_dims(left_cp_base, 1)
-            # right_cp_i = np.expand_dims(right_cp_base, 1)
-            # pc_expanded = np.expand_dims(numpy_og_pc, 0)
-            # distances_left = np.linalg.norm(left_cp_i - pc_expanded, axis = 2)
-            # distances_right = np.linalg.norm(right_cp_i - pc_expanded, axis = 2)
-            # min_distance_left = np.min(distances_left, axis = 0)
-            # min_distance_right = np.min(distances_right, axis = 0)
-            # is_collision_left = (min_distance_left < collision_threshold).any().item()
-            # is_collision_right = (min_distance_right < collision_threshold).any().item()
-
-            left_cp_left_finger = np.array([left_cp[i] for i in [2, 4]])
-            left_cp_right_finger = np.array([left_cp[i] for i in [3, 5]])
-            right_cp_left_finger = np.array([right_cp[i] for i in [2, 4]])
-            right_cp_right_finger = np.array([right_cp[i] for i in [3, 5]])
-            left_cp_mid = np.array([left_cp[i] for i in [2, 3]])
-            right_cp_mid = np.array([right_cp[i] for i in [2, 3]])
-            #Draw a line between the points and check if the distance between the point and the line is smaller than the threshold
-            left_cp_left_distance = point_to_line_dist(numpy_og_pc, left_cp_left_finger[0], left_cp_right_finger[1])
-            left_cp_right_distance = point_to_line_dist(numpy_og_pc, left_cp_right_finger[0], left_cp_right_finger[1])
-            right_cp_left_distance = point_to_line_dist(numpy_og_pc, right_cp_left_finger[0], right_cp_right_finger[1])
-            right_cp_right_distance = point_to_line_dist(numpy_og_pc, right_cp_right_finger[0], right_cp_right_finger[1])
-            left_cp_mid_distance = point_to_line_dist(numpy_og_pc, left_cp_mid[0], left_cp_mid[1])
-            right_cp_mid_distance = point_to_line_dist(numpy_og_pc, right_cp_mid[0], right_cp_mid[1])
-            is_collision_left = (left_cp_left_distance < collision_threshold).any().item() or (left_cp_right_distance < collision_threshold).any().item() or (left_cp_mid_distance < collision_threshold).any().item()
-            is_collision_right = (right_cp_left_distance < collision_threshold).any().item() or (right_cp_right_distance < collision_threshold).any().item() or (right_cp_mid_distance < collision_threshold).any().item()
-
+            left_cp_base = np.array([left_cp[i] for i in [0, 1, 2, 3, 4, 5]])
+            right_cp_base = np.array([right_cp[i] for i in [0, 1, 2, 3, 4, 5]])
+            left_cp_i = np.expand_dims(left_cp_base, 1)
+            right_cp_i = np.expand_dims(right_cp_base, 1)
+            pc_expanded = np.expand_dims(numpy_og_pc, 0)
+            distances_left = np.linalg.norm(left_cp_i - pc_expanded, axis = 2)
+            distances_right = np.linalg.norm(right_cp_i - pc_expanded, axis = 2)
+            min_distance_left = np.min(distances_left, axis = 0)
+            min_distance_right = np.min(distances_right, axis = 0)
+            is_collision_left = (min_distance_left < collision_threshold).any().item()
+            is_collision_right = (min_distance_right < collision_threshold).any().item()
             
 
             #if the point is within the gripper and does not collide with the object, add the grasp to the list of succesfull grasps
@@ -569,12 +556,17 @@ class GraspEstimator:
         
 
         # grasps = utils.control_points_from_grasps(control_points, 'tf', pc = None)
-        print("ammount of succesfull grasps after", len(succesfull_grasps))
+        # print("ammount of succesfull grasps after", len(succesfull_grasps))
         if len(succesfull_grasps) == 0:
             return None, None
-        # sucessfull_control_points = utils.control_points_from_grasps(succesfull_grasps, 'cp', pc = og_pc, scale = self.scale)
-        # control_points = utils.control_points_from_grasps(unsuccesfull_grasps, 'cp', pc = og_pc, scale = self.scale)
+        # else:
+        #     sucessfull_control_points = utils.control_points_from_grasps(succesfull_grasps, 'cp', pc = og_pc, color = (0, 1 , 0), scale = self.scale)
+        #     #only take the first 50 grasps
+        #     unsuccesfull_grasps = unsuccesfull_grasps[:50]
+        #     control_points = utils.control_points_from_grasps(unsuccesfull_grasps, 'cp', pc = og_pc, color = (1, 0 , 0), scale = self.scale)
         grasps = succesfull_grasps
         succes_prob = succesfull_prob
     
         return grasps, succes_prob
+    
+

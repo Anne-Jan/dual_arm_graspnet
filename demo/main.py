@@ -13,6 +13,7 @@ import mayavi.mlab as mlab
 from utils import utils
 from data import DataLoader
 import trimesh.transformations as tra
+from scipy.spatial.transform import Rotation as R
 
 
 def make_parser():
@@ -133,6 +134,46 @@ def backproject(depth_cv,
 
     return X
 
+# Helper function to compute the volume of a bounding box
+def bounding_box_volume(bbox):
+    x_len, y_len, z_len = bbox
+    return x_len * y_len * z_len# Function to compute the intersection volume of two 3D bounding boxes
+
+def intersection_volume(bbox1, bbox2, pos1, pos2):
+    # Calculate the overlap in each dimension
+    overlap_x = max(0, min(pos1[0] + bbox1[0] / 2, pos2[0] + bbox2[0] / 2) - max(pos1[0] - bbox1[0] / 2, pos2[0] - bbox2[0] / 2))
+    overlap_y = max(0, min(pos1[1] + bbox1[1] / 2, pos2[1] + bbox2[1] / 2) - max(pos1[1] - bbox1[1] / 2, pos2[1] - bbox2[1] / 2))
+    overlap_z = max(0, min(pos1[2] + bbox1[2] / 2, pos2[2] + bbox2[2] / 2) - max(pos1[2] - bbox1[2] / 2, pos2[2] - bbox2[2] / 2))    # Intersection volume
+    return overlap_x * overlap_y * overlap_z# Function to calculate IoU for 6D grasps
+
+
+def grasp_iou(pose1, pose2, bbox1 = [0.03, 0.03, 0.03], bbox2 = [0.03, 0.03, 0.03], threshold = 0.25):
+    # Extract positions and orientations from poses
+
+    pos1, pos2 = pose1[:3, 3], pose2[:3, 3]  # (x, y, z)    # Compute the intersection and union volumes
+    intersection_vol = intersection_volume(bbox1, bbox2, pos1, pos2)
+    rot1, rot2 = pose1[:3, :3], pose2[:3, :3]  # Compute the intersection and union volumes
+    union_vol = bounding_box_volume(bbox1) + bounding_box_volume(bbox2) - intersection_vol    # Calculate IoU
+    iou = intersection_vol / union_vol    # Return 1 if IoU is above or equal to threshold, else return 0
+    # print (iou)
+    if iou >= threshold:
+        # print("IoU", iou)
+        #Check if the rotation is within 40 degrees, if not return 0
+        if np.any(np.abs(rotation_angle_difference(rot1, rot2)) > 40):
+            return 0
+        else:
+            return 1
+    return 0
+
+def rotation_angle_difference(R1, R2):
+    # R1 and R2 are 3x3 rotation matrices
+    R_diff = np.dot(R1.T, R2)  # Difference in rotation
+    r = R.from_matrix(R_diff)
+    euler_angles = r.as_euler('zyx', degrees=True)
+    # print("euler_angles", euler_angles)
+    # axis_angle = r.as_rotvec()
+    # angle_deg = np.degrees(np.linalg.norm(axis_angle))
+    return euler_angles# Function to calculate the angle between two rotation matrices
 
 def main(args):
     parser = make_parser()
@@ -145,100 +186,128 @@ def main(args):
     grasp_evaluator_args.continue_train = True
     estimator = grasp_estimator.GraspEstimator(grasp_sampler_args,
                                                grasp_evaluator_args, args)
+    all_thresholds = [0.3, 0.4, 0.5, 0.6, 0.7, 0.8]
+    object_succesfull_for_08 = None
     if args.train_data:
-        grasp_sampler_args.dataset_root_folder = args.dataset_root_folder
-        grasp_sampler_args.num_grasps_per_object = 1
-        grasp_sampler_args.num_objects_per_batch = 1
-        dataset = DataLoader(grasp_sampler_args)
-        
-        for i, data in enumerate(dataset):
-            #works, uncomment to use the vae and evaluator
-            generated_grasps, generated_scores = estimator.generate_and_refine_grasps(
-                data["pc"].squeeze())
-            # generated_grasps = None
-            # print(np.array(generated_grasps).shape)
-            if generated_grasps is None:
-                S = np.diag([0.2, 0.2, 0.2, 1])
-                pc, _ = estimator.prepare_pc(data["pc"].squeeze(), data['all_target_cps'].squeeze())
-                generated_grasps, _, _ = estimator.generate_grasps(pc)
-                #reshape to n by 14
-                # generated_grasps = generated_grasps.reshape(-1, 14)
-                # generated_grasps = utils.transform_control_points(
-                #     generated_grasps[0], batch_size = len(generated_grasps[0]),mode='qt', device='cuda').cpu()
-                grasps = []
-                grasp_pcs = []
-                for grasp in generated_grasps:
-                    print("grasp", grasp.shape)
-                    euler_angles, translations = utils.convert_qt_to_rt(grasp.cpu())
-                    print("euler_angles", euler_angles.shape, "translations", translations.shape)
-                    selection = np.ones((len(euler_angles), 1))
-                    refine_indexes, sample_indexes = np.where(selection)
-                    euler_angles1 = euler_angles[:, :3]
-                    euler_angles2 = euler_angles[:, 3:]
-                    translations1 = translations[:, :3]
-                    translations2 = translations[:, 3:]
-                    # grasp_pc1 = utils.control_points_from_rot_and_trans(euler_angles1, translations1)
-                    # grasp_pc2 = utils.control_points_from_rot_and_trans(euler_angles2, translations2)
-                    if grasp_pcs == []:
-                        cps = utils.control_points_from_rot_and_trans(euler_angles, translations)
-                        #Split the control points into two parts
-                        cp1 = cps[:, 0,:,:]
-                        cp2 = cps[:, 1,:,:]
-                        print("cps", cps.shape)
-                        grasp_pcs = torch.cat((cp1, cp2), 0)
-                    else:
-                        cps = utils.control_points_from_rot_and_trans(euler_angles, translations)
-                        cp1 = cps[:, 0,:,:]
-                        cp2 = cps[:, 1,:,:]
-                        grasp_pcs = torch.cat((grasp_pcs, cp1, cp2), 0)
-                    # print(grasp_pc1)
-                    # if grasp_pcs == []:
-                    #     grasp_pcs = torch.cat((grasp_pc1, grasp_pc2), 0)
-                    # else:
-                    #     grasp_pcs = torch.cat((grasp_pcs, grasp_pc1, grasp_pc2), 0)
-                    for refine_index, sample_index in zip(refine_indexes, sample_indexes):
-                    # print("refine_index", refine_index, "sample_index", sample_index)
-                        rt1 = tra.euler_matrix(*euler_angles1[refine_index, :])
-                        for rt in rt1:
-                            rt *= 0.3
-                        rt1[:3, 3] = translations1[refine_index, :]
-                        rt2 = tra.euler_matrix(*euler_angles2[refine_index, :])
-                        for rt in rt2:
-                            rt *= 0.3
-                        rt2[:3, 3] = translations2[refine_index, :]
-                        #Combine them into nx2x4x4 instead of nx4x4
-                        # rt1 = np.expand_dims(rt1, 0)
-                        # rt2 = np.expand_dims(rt2, 0)
-                        # print("rt1", rt1.shape, rt2.shape)
-                        # print("concatenated", np.concatenate((rt1, rt2), 0).shape)
-                        #Simply append them both to the list
-                        # rt1 = S.dot(rt1)
-                        # rt2 = S.dot(rt2)
-                        grasps.append(rt1)
-                        grasps.append(rt2)
-                        generated_grasps = grasps
-            # else:
-                # print("scaling")
-                # s = np.diag([0.2, 0.2, 0.2, 1])
-                # for i in range(len(generated_grasps)):
-                #     generated_grasps[i][0] = s.dot(generated_grasps[i][0])
-                #     generated_grasps[i][1] = s.dot(generated_grasps[i][1])
-        
+        for jaccard_threshold in all_thresholds:
+            grasp_sampler_args.dataset_root_folder = args.dataset_root_folder
+            grasp_sampler_args.num_grasps_per_object = 1
+            grasp_sampler_args.num_objects_per_batch = 1
+            dataset = DataLoader(grasp_sampler_args)
+            # jaccard_threshold = 0.8
+            objects_shown = 0
+            num_objects_with_good_grasps = 0
+            total_grasp_pairs_found_for_threshold = 0
+            print("Starting to process objects for threshold", jaccard_threshold)
+            for i, data in enumerate(dataset):
+                # print("Processing object: ", i+1, 'which is', objects_shown, 'of total to process', num_objects_to_show)
+                # mlab.figure(bgcolor=(1, 1, 1))
+                # #draw a box of size 0.02, 0.02, 0.02
+                # mlab.points3d(0, 0, 0, scale_factor=0.03, color=(1, 0, 0), mode = 'cube')
+                # grasp = data["all_target_cps"][0][0]
+                # mlab.points3d(grasp[:, 0], grasp[:, 1], grasp[:, 2], scale_factor=0.01, color=(0, 1, 0))
+                # mlab.show()
+                # print(xd)    
+                # already_processed = ['shapenet_models/da2_dataset_small/meshes/2bf0144b097a81c2639c1eedc5ef16cc.stl','shapenet_models/da2_dataset_small/meshes/3959f60f4e4356b35817e30de1dabac4.stl','shapenet_models/da2_dataset_small/meshes/fd9b63c23342e57045b799df37b9f05.stl','shapenet_models/da2_dataset_small/meshes/4698973d47c780654f48c7d5931203ac.stl', 'shapenet_models/da2_dataset_small/meshes/c17873ebacc5476e1ee2b36e795b09b7.stl', 'shapenet_models/da2_dataset_small/meshes/ca3e6e011ed7ecb32dc86554a873c4fe.stl','shapenet_models/da2_dataset_small/meshes/b2cfba8ee63abd118fac6a8030e15671.stl']
+                # if data['cad_path'] in already_processed:
+                #     continue
+                #works, uncomment to use the vae and evaluator
+                # if object_succesfull_for_08 != None:
+                #     print("Setting data to object succesfull for 08")
+                #     data = object_succesfull_for_08
+                good_grasps = 0
+                grasps_to_save=[]
+                # print("Generating grasps")
+                generated_grasps, generated_scores = estimator.generate_and_refine_grasps(
+                    data["pc"].squeeze(), data['all_target_cps'])
+                # if generated_grasps is None:
+                #     print("No grasps were generated")
+                #     continue
+                #Visualize the grasps before comparison to ground truth
+                # mlab.figure(bgcolor=(1, 1, 1))
+                # draw_scene(data["pc"][0],
+                #            grasps=generated_grasps,)
+                        #    target_cps = data['all_target_cps'][:500].reshape(-1,6,3),)
+                        #    grasp_scores=generated_scores)
+               
+                # print(data["all_grasp_rt"].shape)
+                # print("non reshaped", data["all_grasp_rt"][0])
+                grasp_rt = data["all_grasp_rt"].reshape(-1, 4, 4)
 
-            print(np.array(generated_grasps).shape, np.array(generated_scores).shape)
-            #double the grasp scores pairwise. So that for example index 0 and 1 of the new scores have the same score as index 0 of the old scores
-            generated_scores = np.concatenate((generated_scores, generated_scores), axis = 0)
-            mlab.figure(bgcolor=(1, 1, 1))
-            draw_scene_dual(data["pc"][0],
-                       grasps=generated_grasps,
-                       grasp_scores=generated_scores)
-            # draw_scene(data["pc"][0],
-            #               grasps=generated_grasps,
-            #               target_cps=torch.FloatTensor(grasp_pcs))
-            print('close the window to continue to next object . . .')
-            mlab.show()
-            if i+1 == num_objects_to_show:
-                break
+                #Compare the generated grasps with the ground truth grasps
+                print("Found", len(generated_grasps), "grasps. Calculating jaccard index")
+                #take the grasp pairs with the highest score
+                index_of_score = np.argmax(generated_scores)
+                grasp1 = generated_grasps[2 * index_of_score]
+                grasp2 = generated_grasps[(2 * index_of_score) + 1]
+                generated_grasps = [grasp1, grasp2]
+                # mlab.figure(bgcolor=(1, 1, 1))
+                # draw_scene(data["pc"][0],
+                #               grasps=generated_grasps,)
+                #             #   target_cps=torch.FloatTensor(grasp_pcs))
+                # print('close the window to continue to next object . . .')
+                # mlab.show()
+                for i in range(len(generated_grasps) -1):
+                    if i %2 != 0 and i != 0:
+                        continue
+                    for j in range(len(grasp_rt)-1):
+                        if j %2 != 0 and j != 0:
+                            continue
+                        # print("jaccard_index_with_threshold_and_rotation", jaccard_index_with_threshold_and_rotation(generated_grasps[i], grasp_rt[j]))
+                        if (grasp_iou(generated_grasps[i], grasp_rt[j], threshold= jaccard_threshold) == 1 and (grasp_iou(generated_grasps[i+1], grasp_rt[j+1], threshold= jaccard_threshold) == 1)) or (grasp_iou(generated_grasps[i], grasp_rt[j+1], threshold=jaccard_threshold) == 1 and(grasp_iou(generated_grasps[i+1], grasp_rt[j], threshold=jaccard_threshold) == 1)):
+                            good_grasps += 1
+                            grasps_to_save.append(generated_grasps[i])
+                            grasps_to_save.append(generated_grasps[i+1])
+                            # print("grasp found")
+                            break
+                        # else:
+                        #     rejected_grasps.append(generated_grasps[i])
+                        #     rejected_grasps.append(generated_grasps[i+1])
+                            # break
+                #Visualize some rejected grasps
+                # mlab.figure(bgcolor=(1, 1, 1))
+                # draw_scene_dual(data["pc"][0],
+                #            grasps=rejected_grasps[:20],)
+                # mlab.show()
+                generated_grasps = grasps_to_save
+                if good_grasps == 0:
+                    print("No good grasps were found")
+                    #only for visualisation, should be removed if calculating jaccard index
+                    # continue
+                else:
+                    print("Found", good_grasps, "good grasps")
+                    # print("File:", data['cad_path'])
+                    mlab.figure(bgcolor=(1, 1, 1))
+                    draw_scene(data["pc"][0],
+                                  grasps=generated_grasps,)
+                                #   target_cps=torch.FloatTensor(grasp_pcs))
+                    print('close the window to continue to next object . . .')
+                    mlab.show()
+                    total_grasp_pairs_found_for_threshold += good_grasps
+                    num_objects_with_good_grasps += 1
+                    # continue
+                
+                #double the grasp scores pairwise. So that for example index 0 and 1 of the new scores have the same score as index 0 of the old scores
+                # generated_scores = np.concatenate((generated_scores, generated_scores), axis = 0)
+                # mlab.figure(bgcolor=(1, 1, 1))
+                # draw_scene_dual(data["pc"][0],
+                #            grasps=generated_grasps,)
+                # mlab.show()
+                #Found a good object, save it and continue to the next threshold
+                # object_succesfull_for_08 = data
+                # break
+                        #    target_cps = data['all_target_cps'][:500].reshape(-1,6,3),)
+                        #    grasp_scores=generated_scores)
+                # # draw_scene(data["pc"][0],
+                # #               grasps=generated_grasps,
+                # #               target_cps=torch.FloatTensor(grasp_pcs))
+                # print('close the window to continue to next object . . .')
+                # mlab.show()
+                objects_shown += 1
+                if objects_shown == num_objects_to_show:
+                    print("Found", num_objects_with_good_grasps, "objects with good grasps for threshold", jaccard_threshold)
+                    print("Average number of good grasps found for this threshold", total_grasp_pairs_found_for_threshold/num_objects_with_good_grasps)
+                    break
     else:
         for npy_file in glob.glob(os.path.join(args.npy_folder, '*.npy')):
             # Depending on your numpy version you may need to change allow_pickle

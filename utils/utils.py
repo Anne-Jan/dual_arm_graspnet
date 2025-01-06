@@ -342,7 +342,7 @@ def get_control_point_tensor(batch_size, use_torch=True, device="cpu", dual_gras
     
     return control_points
 
-def control_points_from_grasps(grasps, output_type='cp', pc=None, scale=0.3):
+def control_points_from_grasps(grasps, output_type='cp', pc=None, color = (0, 1, 0,), scale=0.2):
 
     if output_type == 'cp':
         """
@@ -368,6 +368,7 @@ def control_points_from_grasps(grasps, output_type='cp', pc=None, scale=0.3):
             draw_scene(
                     pc = pc.cpu().numpy(),
                     grasps=grasps,
+                    gripper_color=color,
                     # target_cps=control_points,
                 )
             mlab.show()
@@ -404,7 +405,7 @@ def control_points_from_grasps(grasps, output_type='cp', pc=None, scale=0.3):
 
         return transformed_grasp
 
-def transform_control_points(gt_grasps, batch_size, mode='qt', device="cpu", dual_grasp=False, scale=0.3):
+def transform_control_points(gt_grasps, batch_size, mode='qt', device="cpu", dual_grasp=False, scale=0.2):
     """
       Transforms canonical points using gt_grasps.
       mode = 'qt' expects gt_grasps to have (batch_size x 7) where each 
@@ -649,7 +650,7 @@ def mkdir(path):
 
 def control_points_from_rot_and_trans(grasp_eulers,
                                       grasp_translations,
-                                      device="cpu", pc = None, scale=0.3):
+                                      device="cpu", pc = None, scale=0.2):
     if grasp_eulers.shape[1] == 6:
         # print("duals")
         grasp_eulers1 = grasp_eulers[:, :3]
@@ -715,7 +716,7 @@ def control_points_from_rot_and_trans(grasp_eulers,
     return grasp_pc
 
 
-def rot_and_trans_to_grasps(euler_angles, translations, selection_mask, scale=0.3):
+def rot_and_trans_to_grasps(euler_angles, translations, selection_mask, scale=0.2):
     # print("euler_angles", euler_angles.shape, "translations", translations.shape, "selection_mask", selection_mask.shape)
     if euler_angles.shape[2] == 6:
         # print("duals")
@@ -857,7 +858,7 @@ def choose_grasps_better_than_threshold(eulers,
     """
       Chooses the grasps that have scores higher than the input threshold.
     """
-    print('choose_better_than_threshold threshold=', threshold)
+    # print('choose_better_than_threshold threshold=', threshold)
     return np.asarray(probs >= threshold, dtype=np.float32)
 
 
@@ -932,7 +933,7 @@ def qrot(q, v):
     return (v + 2 * (q[:, :1] * uv + uuv)).view(original_shape)
 
 
-def get_inlier_grasp_indices(grasp_list, query_point, threshold=1.0, device="cpu", scale=0.3):
+def get_inlier_grasp_indices(grasp_list, query_point, threshold=1.0, device="cpu", scale=0.2):
     """This function returns all grasps whose distance between the mid of the finger tips and the query point is less than the threshold value. 
     
     Arguments:

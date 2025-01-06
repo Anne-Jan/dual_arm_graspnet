@@ -45,7 +45,7 @@ class GraspEvaluatorData(BaseDataset):
             data = self.get_nonuniform_evaluator_data(path)
         gt_control_points = utils.transform_control_points_numpy(
             data[1], self.opt.num_grasps_per_object, mode='rt')
-        print(data[8].shape)
+        # print(data[8].shape)
         all_gt_control_points = utils.transform_control_points_numpy(
             data[8], len(data[8]), mode='rt')
 

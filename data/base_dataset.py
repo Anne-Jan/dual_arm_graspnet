@@ -198,9 +198,9 @@ class BaseDataset(data.Dataset):
             # grasps[:, :, :3, 3] += np.array([0, 0, 0.05])
 
             # grasps[:, :, :3, 3] -= object_mean
-            scale = 0.3
+            scale = 0.2
             json_dict['object_scale'] = json_dict['object_scale'] * scale
-            # scale = 1.25 * scale
+            # scale = 0.3
             S = np.diag([scale, scale, scale, 1])
             for i in range(len(grasps)):
                 R = tra.rotation_matrix(np.pi/2, [1, 0, 0])
