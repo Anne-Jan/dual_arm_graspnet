@@ -1,5 +1,5 @@
 
-# Dual-Arm Implementation of 6-DoF GraspNet: Variational Grasp Generation for Object Manipulation
+# Dual-Arm Implementation of 6-DoF GraspNet
 This is an adaption of (https://github.com/jsll/pytorch_6dof-graspnet) for dual-arm object manipulation. The following instructions are from the original repository. Further down are the instructions to train the dual-arm implementation.
 This repository also has a seperate branch for training the VAE and GAN with split encoder/decoder and generator respectively for left and right arm on the branch `split_architectures`.
 
@@ -46,25 +46,7 @@ This repository also includes an improved grasp sampling network which was
 proposed here <https://github.com/NVlabs/6dof-graspnet>. The new grasp sampling
 network is trained with [Implicit Maximum Likelihood Estimation](https://arxiv.org/pdf/2004.03590.pdf).
 
-
-## Demo
-
-Run the demo using the command below
-
-```shell
-python -m demo.main
-```
-
-Per default, the demo script runs the GAN sampler with sampling based
-refinement. To use the VAE sampler and/or gradient refinement run:
-
-```shell
-python -m demo.main --grasp_sampler_folder checkpoints/vae_pretrained/ --refinement_method gradient
-```
-
-![example](demo/examples/1.png) ![example](demo/examples/2.png)
-
-## Dataset
+## Dataset for single-arm grasping
 
 ### Get ShapeNet Models
 
@@ -97,14 +79,13 @@ where the `$DATASET_ROOT_FOLDER` is the path to the dataset you downloaded.
 
 To monitor the training, run `tensorboard --logdir checkpoints/` and click <http://localhost:6006/>.
 
-For more training options run
-GAN Training Example Command:
+For more training options run:
 
 ```shell
 python3 train.py  --help
 ```
 
-# Dataset DA2
+# Dual-Arm training and DA2 dataset
 
 Similar structure, can be downloaded from [here](https://drive.google.com/file/d/1Gb247xnwxbiy2psliTbu5DjMAi7pbBzn/view?usp=sharing).:
 1) `grasps` folder: contains all the grasps pairs for each object.
