@@ -42,8 +42,8 @@ for filename in os.listdir(grasp_root_dir):
 
 
 #save the grasp files to a file
-# np.save("grasp_files_to_save.npy", grasp_files_to_save)
-# np.save("grasp_files_scanned.npy", grasp_files_scanned)
+np.save("grasp_files_to_save.npy", grasp_files_to_save)
+np.save("grasp_files_scanned.npy", grasp_files_scanned)
 ### REMOVE THIS ONE
 #666e9c3ff214f7a661c1d97b345c8391_0.1698553260483882.h5
 # 366fded292e63dfcf8f4382b90f1d4c3_0.02618897589009358.h5
