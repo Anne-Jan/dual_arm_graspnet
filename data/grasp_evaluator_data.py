@@ -225,7 +225,7 @@ class GraspEvaluatorData(BaseDataset):
         
         # print(self.ratio_hardnegative,self.collision_hard_neg_max_translation, self.collision_hard_neg_min_translation, self.collision_hard_neg_max_rotation, self.collision_hard_neg_min_rotation, self.collision_hard_neg_num_perturbations)
 
-        pos_grasps, pos_qualities, neg_grasps, neg_qualities, obj_mesh, cad_path, cad_scale = self.read_grasp_file(
+        pos_grasps, pos_qualities, neg_grasps, neg_qualities, obj_mesh, cad_path, cad_scale, all_grasps = self.read_grasp_file(
             path)
        
         output_pcs = []
