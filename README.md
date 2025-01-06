@@ -1,5 +1,5 @@
 
-# Dual-Arm Implementation of 6-DoF GraspNet: Variational Grasp Generation for Object Manipulation
+# Dual-Arm Implementation of 6-DoF GraspNet
 This is an adaption of (https://github.com/jsll/pytorch_6dof-graspnet) for dual-arm object manipulation. The following instructions are from the original repository. Further down are the instructions to train the dual-arm implementation.
 This repository also has a seperate branch for training the VAE and GAN with split encoder/decoder and generator respectively for left and right arm on the branch `split_architectures`.
 
@@ -46,24 +46,6 @@ This repository also includes an improved grasp sampling network which was
 proposed here <https://github.com/NVlabs/6dof-graspnet>. The new grasp sampling
 network is trained with [Implicit Maximum Likelihood Estimation](https://arxiv.org/pdf/2004.03590.pdf).
 
-
-## Demo
-
-Run the demo using the command below
-
-```shell
-python -m demo.main
-```
-
-Per default, the demo script runs the GAN sampler with sampling based
-refinement. To use the VAE sampler and/or gradient refinement run:
-
-```shell
-python -m demo.main --grasp_sampler_folder checkpoints/vae_pretrained/ --refinement_method gradient
-```
-
-![example](demo/examples/1.png) ![example](demo/examples/2.png)
-
 ## Dataset
 
 ### Get ShapeNet Models
@@ -104,7 +86,7 @@ GAN Training Example Command:
 python3 train.py  --help
 ```
 
-# Dataset DA2
+# Dual-arm training and DA2 dataset
 
 Similar structure, can be downloaded from [here](https://drive.google.com/file/d/1Gb247xnwxbiy2psliTbu5DjMAi7pbBzn/view?usp=sharing).:
 1) `grasps` folder: contains all the grasps pairs for each object.
@@ -140,7 +122,7 @@ The file `models/networks.py` creates the VAE, so the encoder and decoder, as we
 
 The dataloader part is handled by the files `data/base_dataset.py` (here the scaling occurs) and `data/grasp_sampling_data.py` for the VAE and `data/grasp_evaluator_data.py` for the evaluator model. On `lines 91-92` in `grasp_sampling.py` the grasp poses get flattened and those are used as input for the model together with the PC.
 
-The file `utils/utils.py` contains multiple functionts, most importantly the `get_control_point_tensor()` and `transform_control_points()` which transforms the sampled quaternions and translations into control points.
+The file `utils/utils.py` contains multiple functions, most importantly the `get_control_point_tensor()` and `transform_control_points()` which transforms the sampled quaternions and translations into control points.
 
 
 ## Running in Habrok
@@ -168,7 +150,7 @@ conda activate DA2graspnet
 conda install pytorch==1.13.0 torchvision==0.14.0 torchaudio==0.13.0 pytorch-cuda=11.7 -c pytorch -c nvidia
 pip install --upgrade pip setuptools wheel
 module load CUDA/11.7.0
-git clone https://github.com/Anne-Jan/graspnetbackup.git
+git clone https://github.com/Anne-Jan/dual_arm_graspnet.git
 cd graspnetbackup
 git clone https://github.com/erikwijmans/Pointnet2_PyTorch
 cd Pointnet2_PyTorch && pip install -r requirements.txt
@@ -198,7 +180,7 @@ To submit a training job in Habrok, you must create a script e.g. `train_habrok_
 #SBATCH --gpus-per-node=v100:1
 #SBATCH --output=job-%j.log
 
-cd /home1/sXXXXXX/graspnetbackup
+cd /home1/sXXXXXX/dual_arm_graspnet
 module load CUDA/11.7.0
 module load Anaconda3 
 conda activate
