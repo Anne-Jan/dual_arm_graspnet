@@ -237,10 +237,11 @@ def main(args):
                 #Compare the generated grasps with the ground truth grasps
                 print("Found", len(generated_grasps), "grasps. Calculating jaccard index")
                 #take the grasp pairs with the highest score
-                index_of_score = np.argmax(generated_scores)
-                grasp1 = generated_grasps[2 * index_of_score]
-                grasp2 = generated_grasps[(2 * index_of_score) + 1]
-                generated_grasps = [grasp1, grasp2]
+                # index_of_score = np.argmax(generated_scores)
+                # grasp1 = generated_grasps[2 * index_of_score]
+                # grasp2 = generated_grasps[(2 * index_of_score) + 1]
+                # generated_grasps = [grasp1, grasp2]
+                # print(len(generated_grasps))
                 # mlab.figure(bgcolor=(1, 1, 1))
                 # draw_scene(data["pc"][0],
                 #               grasps=generated_grasps,)
@@ -254,6 +255,7 @@ def main(args):
                         if j %2 != 0 and j != 0:
                             continue
                         # print("jaccard_index_with_threshold_and_rotation", jaccard_index_with_threshold_and_rotation(generated_grasps[i], grasp_rt[j]))
+                        # print(i, j)
                         if (grasp_iou(generated_grasps[i], grasp_rt[j], threshold= jaccard_threshold) == 1 and (grasp_iou(generated_grasps[i+1], grasp_rt[j+1], threshold= jaccard_threshold) == 1)) or (grasp_iou(generated_grasps[i], grasp_rt[j+1], threshold=jaccard_threshold) == 1 and(grasp_iou(generated_grasps[i+1], grasp_rt[j], threshold=jaccard_threshold) == 1)):
                             good_grasps += 1
                             grasps_to_save.append(generated_grasps[i])
