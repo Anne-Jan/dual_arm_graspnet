@@ -11,8 +11,8 @@ import copy
 import os
 from utils import utils
 from scipy.spatial import ConvexHull
-import pymesh
 
+from utils.visualization_utils_headless import *
 class GraspEstimator:
     """
       Includes the code used for running the inference.
@@ -67,12 +67,12 @@ class GraspEstimator:
     def generate_and_refine_grasps(
         self,
         pc,
-        all_target_cps
+        all_target_cps = None
     ):
         pc_list, pc_mean = self.prepare_pc(pc)
+        # draw_scene(pc_list[0][0].cpu(), save_path='./demo/pc_from_list_rescaled.png')
         self.all_target_cps = all_target_cps
         grasps_list, confidence_list, z_list = self.generate_grasps(pc_list)
-        # print("grasps per pc",grasps_list[0].shape)
         inlier_indices = utils.get_inlier_grasp_indices(grasps_list,
                                                         torch.zeros(1, 3).to(
                                                             self.device),
@@ -82,10 +82,9 @@ class GraspEstimator:
         self.keep_inliers(grasps_list, confidence_list, z_list, pc_list,
                           inlier_indices)
         improved_eulers, improved_ts, improved_success = [], [], []
-        
         for pc, grasps in zip(pc_list, grasps_list):
             out = self.refine_grasps(pc, grasps, self.refine_method,
-                                     self.num_refine_steps, og_pc=pc[0])
+                                     self.num_refine_steps, og_pc=None)
             if len(out[0]) == 0:
                 print("No grasps found")
                 continue
@@ -111,7 +110,11 @@ class GraspEstimator:
                                                              self.threshold)
         grasps = utils.rot_and_trans_to_grasps(improved_eulers, improved_ts,
                                                selection_mask, scale = self.scale)
-        # utils.denormalize_grasps(grasps, pc_mean)
+        utils.denormalize_grasps(grasps, pc_mean)
+        pc = pc[0].cpu().numpy()
+        pc += np.expand_dims(pc_mean, 0)
+        #convert back to tensor
+        pc = torch.from_numpy(pc).float().to(self.device)
         #for each grasp in the list, create a pair with each other grasp in the list without duplicates
         # new_grasps = []
         # for grasp in grasps:
@@ -126,18 +129,26 @@ class GraspEstimator:
         success_prob = improved_success[refine_indexes,
                                         sample_indexes].tolist()
         # print("ammount of grasps before", np.array(grasps).shape)
-        extra_grasps, extra_success_prob = self.final_selection(grasps, success_prob, pc[0])
+        extra_grasps, extra_success_prob = self.final_selection(grasps, success_prob, pc)
         grasps = extra_grasps
         success_prob = extra_success_prob
+        draw_scene(pc.cpu().numpy(), grasps, save_path='./demo/pc_final.png')
         # print("ammount of grasps after", np.array(extra_grasps).shape, len(extra_success_prob))
-        return grasps, success_prob
+        return grasps, success_prob, pc
 
     def prepare_pc(self, pc):
         # print(self.batch_size)
         if pc.shape[0] > self.target_pc_size:
             pc = utils.regularize_pc_point_count(pc, self.target_pc_size)
         pc_mean = np.mean(pc, 0)
+        # draw_scene(pc, save_path='./demo/pc_rescaled.png')
+
+        ###Uncomment to set the pc to be in the origin
         pc -= np.expand_dims(pc_mean, 0)
+        pc2 = copy.deepcopy(pc)
+        pc2 += np.expand_dims(pc_mean, 0)
+        ###
+        draw_scene(pc2, save_path='./demo/pc_rescaled.png')
         pc = np.tile(pc, (self.num_grasp_samples, 1, 1))
         pc = torch.from_numpy(pc).float().to(self.device)
         pcs = []
@@ -377,6 +388,14 @@ class GraspEstimator:
             if last_success is None:
                 grasp_pcs = utils.control_points_from_rot_and_trans(
                     grasp_eulers, grasp_trans, self.device, pc = None, scale = self.scale)
+                #reshape from 30,2,6,3 to 60,6,3
+                grasps_pcs_numpy = grasp_pcs.cpu().numpy()
+                grasps_pcs_numpy = grasps_pcs_numpy.reshape(-1, 6, 3)
+                #only take the first four
+                grasps_pcs_numpy = grasps_pcs_numpy[:6]
+                grasp_pc_numpy = grasps_pcs_numpy.reshape(-1, 3)
+
+                # draw_scene(grasps_pcs_numpy, save_path='./demo/pc_with_grasp.png')
                 last_success = self.grasp_evaluator.evaluate_grasps(
                     pcs, grasp_pcs)
                 # print("last success", last_success)
@@ -452,7 +471,7 @@ class GraspEstimator:
 
                 
                
-    def final_selection(self, grasps, succes_prob, og_pc, collision_threshold = 0.0001, threshold_distance = 0.005):
+    def final_selection(self, grasps, succes_prob, og_pc, collision_threshold = 0.005, threshold_distance = 0.005):
         control_points = utils.control_points_from_grasps(grasps, 'cp', pc = None, scale = self.scale)
         # print("ammount of grasps before", len(grasps), np.array(grasps).shape, control_points.shape)
         #For each grasp pair, check if the control points enclose the point cloud

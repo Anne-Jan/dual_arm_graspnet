@@ -8,7 +8,8 @@ import sys
 import os
 import glob
 import mayavi.mlab as mlab
-from utils.visualization_utils import *
+# from utils.visualization_utils import *
+from utils.visualization_utils_headless import *
 import mayavi.mlab as mlab
 from utils import utils
 from data import DataLoader
@@ -225,9 +226,9 @@ def main(args):
                 #     continue
                 #Visualize the grasps before comparison to ground truth
                 # mlab.figure(bgcolor=(1, 1, 1))
-                # draw_scene(data["pc"][0],
-                #            grasps=generated_grasps,)
-                        #    target_cps = data['all_target_cps'][:500].reshape(-1,6,3),)
+                draw_scene(data["pc"][0],
+                           grasps=generated_grasps,
+                           target_cps = data['all_target_cps'][:500].reshape(-1,6,3),)
                         #    grasp_scores=generated_scores)
                
                 # print(data["all_grasp_rt"].shape)

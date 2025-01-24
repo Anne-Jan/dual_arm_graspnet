@@ -4,7 +4,7 @@ from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 import numpy as np
 import trimesh
 from utils import utils, sample
-
+import time
 
 def get_color_plasma_org(x):
     return tuple([x for i, x in enumerate(plt.cm.plasma(x)) if i < 3])
@@ -176,7 +176,6 @@ def draw_scene(pc,
     set_axes_equal(ax)
     #ax.set_box_aspect([1, 1, 1])  # Aspect ratio is 1:1:1
     ax.view_init(elev=30, azim=60)
-
     # Save the plot as a .png file
     plt.savefig(save_path)
     plt.close(fig)
