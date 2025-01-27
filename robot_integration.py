@@ -67,27 +67,33 @@ class PointcloudParser():
         generated_grasps, generated_scores, downsampled_pc = self.estimator.generate_and_refine_grasps(
                     pc_data_no_table)
 
-        draw_scene(downsampled_pc.cpu().numpy(), grasps=new_grasps, save_path='./demo/grasps_with_unwanted_pairs.png')
+        draw_scene(downsampled_pc.cpu().numpy(), grasps=generated_grasps, save_path='./demo/grasps_with_unwanted_pairs.png')
         #randomly shuffle the grasps as most of the grasp pairs consist of very similar grasps
-        np.random.shuffle(generated_grasps)
+        # np.random.shuffle(generated_grasps)
 
         ###Remove pairs of grasps where both are on the same side of the object.
         ###This is done by remove pairs if both grasps have a positive x value or both have a negative x value
         new_grasps = []
+        delta = np.array([0.0059, 0.0059, 0.0059])
         for idx in range(len(generated_grasps)):
             if idx % 2 == 0:
                 grasp1 = generated_grasps[idx]
                 grasp2 = generated_grasps[idx+1]
-                if np.sign(grasp1[0, 3]) != np.sign(grasp2[0, 3]):
+                #Calculate the distance between the two grasps
+                distance = np.linalg.norm(grasp1[:3, 3] - grasp2[:3, 3])
+                # print("Distance between grasps", distance)
+                if distance > 0.015:
                     #also remove grasps if the z value is less than 0.05
                     if grasp1[2, 3] > 0.05 and grasp2[2, 3] > 0.05:
+                        # grasp1[:3, 3] += delta
+                        # grasp2[:3, 3] += delta
                         new_grasps.append(grasp1)
                         new_grasps.append(grasp2)
                 
-        print("Number of grasps before removing pairs on the same side", len(generated_grasps))
-        print("Number of grasps after removing pairs on the same side", len(new_grasps))
+        print("Number of grasps before removing pairs", len(generated_grasps))
+        print("Number of grasps after removing pairs with similar grasps", len(new_grasps))
 
-        draw_scene(downsampled_pc.cpu().numpy(), grasps=new_grasps, save_path='./demo/grasps_removed_unwanted_pairs.png')
+        # draw_scene(downsampled_pc.cpu().numpy(), grasps=new_grasps, save_path='./demo/grasps_removed_unwanted_pairs.png')
         generated_grasps = new_grasps
         
         # draw_scene(pc_data_no_table, grasps=generated_grasps, save_path='./demo/grasps_before_rescale.png')
@@ -101,10 +107,11 @@ class PointcloudParser():
 
         pc_data_no_table = pc_data_no_table * scale
         draw_scene(pc_data_no_table, grasps=generated_grasps, save_path='./demo/grasps_after_rescale.png')
-        #publish the grasps to a topic
-        # self.publish_grasps(generated_grasps[:10])
-        # self.execute_grasp(generated_grasps[:10])
-        self.execute_grasp(generated_grasps)
+        if len(generated_grasps) != 0:
+            #publish the grasps to a topic
+            # self.publish_grasps(generated_grasps[:10])
+            # self.execute_grasp(generated_grasps[:10])
+            self.execute_grasp(generated_grasps)
 
 
     def listener(self):
@@ -120,7 +127,7 @@ class PointcloudParser():
         test_behavior.robot='dual'
         test_behavior.behavior='go_to_initial_pose'
         result = behaviors_service(test_behavior)
-        print("Move to initial pose result: ", result)
+        # print("Move to initial pose result: ", result)
         time.sleep(3)
 
         for idx in range(len(grasps)):
@@ -139,31 +146,31 @@ class PointcloudParser():
                     left_grasp = grasp2
                     right_grasp = grasp1
                 
-                test_behavior.right_target_pose.pose.position.x = right_grasp[0, 3] + 0.25
+                test_behavior.right_target_pose.pose.position.x = right_grasp[0, 3] #+ 0.25
                 test_behavior.right_target_pose.pose.position.y = right_grasp[1, 3]
                 test_behavior.right_target_pose.pose.position.z = right_grasp[2, 3]
                 # Convert the 3x3 rotation matrix to a quaternion
                 quaternion = self.quaternion_from_matrix(right_grasp)
-                test_behavior.right_target_pose.pose.orientation.x = quaternion[0] - 0.017
-                test_behavior.right_target_pose.pose.orientation.y = quaternion[1] - 0.017
-                test_behavior.right_target_pose.pose.orientation.z = quaternion[2] + 0.706
-                test_behavior.right_target_pose.pose.orientation.w = quaternion[3] + 0.706
+                test_behavior.right_target_pose.pose.orientation.x = quaternion[0] #- 0.017
+                test_behavior.right_target_pose.pose.orientation.y = quaternion[1] #- 0.017
+                test_behavior.right_target_pose.pose.orientation.z = quaternion[2] #+ 0.706
+                test_behavior.right_target_pose.pose.orientation.w = quaternion[3] #+ 0.706
 
-                test_behavior.left_target_pose.pose.position.x = left_grasp[0, 3] - 0.25
+                test_behavior.left_target_pose.pose.position.x = left_grasp[0, 3] #- 0.25
                 test_behavior.left_target_pose.pose.position.y = left_grasp[1, 3]
                 test_behavior.left_target_pose.pose.position.z = left_grasp[2, 3]
                 # Convert the 3x3 rotation matrix to a quaternion
                 quaternion = self.quaternion_from_matrix(left_grasp)
-                test_behavior.left_target_pose.pose.orientation.x = quaternion[0] - 0.017
-                test_behavior.left_target_pose.pose.orientation.y = quaternion[1] - 0.017
-                test_behavior.left_target_pose.pose.orientation.z = quaternion[2] + 0.706
-                test_behavior.left_target_pose.pose.orientation.w = quaternion[3] + 0.706
+                test_behavior.left_target_pose.pose.orientation.x = quaternion[0] #- 0.017
+                test_behavior.left_target_pose.pose.orientation.y = quaternion[1] #- 0.017
+                test_behavior.left_target_pose.pose.orientation.z = quaternion[2] #+ 0.706
+                test_behavior.left_target_pose.pose.orientation.w = quaternion[3] #+ 0.706
                 result = behaviors_service(test_behavior)
-                print("Move to grasp pose result: ", result)
+                # print("Move to grasp pose result: ", result)
                 time.sleep(1)
 
                 #return to initial pose
-                test_behavior.behavior='go_to_initial_pose'
+                # test_behavior.behavior='go_to_initial_pose'
                 result = behaviors_service(test_behavior)
                 time.sleep(0.1)
 

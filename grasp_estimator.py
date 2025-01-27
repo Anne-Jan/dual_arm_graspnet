@@ -132,7 +132,7 @@ class GraspEstimator:
         extra_grasps, extra_success_prob = self.final_selection(grasps, success_prob, pc)
         grasps = extra_grasps
         success_prob = extra_success_prob
-        draw_scene(pc.cpu().numpy(), grasps, save_path='./demo/pc_final.png')
+        # draw_scene(pc.cpu().numpy(), grasps, save_path='./demo/pc_final.png')
         # print("ammount of grasps after", np.array(extra_grasps).shape, len(extra_success_prob))
         return grasps, success_prob, pc
 
