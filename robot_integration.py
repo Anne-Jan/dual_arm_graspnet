@@ -22,14 +22,15 @@ from sensor_msgs.msg import PointCloud2
 import sensor_msgs.point_cloud2 as pc2
 import geometry_msgs.msg
 from visualization_msgs.msg import Marker, MarkerArray
-from geometry_msgs.msg import PoseArray, Pose
+from geometry_msgs.msg import PoseArray, Pose, PointStamped
 from visualization_msgs.msg import Marker, MarkerArray
 import time
 
-from race_basic_motion_control.srv import *
+
 import time
-from trajectory_msgs.msg import JointTrajectoryPoint, JointTrajectory
 import roslib; roslib.load_manifest('race_basic_motion_control')
+from race_basic_motion_control.srv import *
+from trajectory_msgs.msg import JointTrajectoryPoint, JointTrajectory
 
 class PointcloudParser():
     def __init__(self, pointcloud_topic, parser):
@@ -74,7 +75,6 @@ class PointcloudParser():
         ###Remove pairs of grasps where both are on the same side of the object.
         ###This is done by remove pairs if both grasps have a positive x value or both have a negative x value
         new_grasps = []
-        delta = np.array([0.0059, 0.0059, 0.0059])
         for idx in range(len(generated_grasps)):
             if idx % 2 == 0:
                 grasp1 = generated_grasps[idx]
@@ -82,14 +82,30 @@ class PointcloudParser():
                 #Calculate the distance between the two grasps
                 distance = np.linalg.norm(grasp1[:3, 3] - grasp2[:3, 3])
                 # print("Distance between grasps", distance)
-                if distance > 0.015:
-                    #also remove grasps if the z value is less than 0.05
-                    if grasp1[2, 3] > 0.05 and grasp2[2, 3] > 0.05:
-                        # grasp1[:3, 3] += delta
-                        # grasp2[:3, 3] += delta
-                        new_grasps.append(grasp1)
-                        new_grasps.append(grasp2)
-                
+                if distance > 0.025:
+                    #Also check if the left grasp is not too much on the right side and the right grasp is not too much on the left side
+                    if grasp1[0, 3] < grasp2[0, 3]:
+                        left_grasp = grasp1
+                        right_grasp = grasp2
+                    else:
+                        left_grasp = grasp2
+                        right_grasp = grasp1
+
+                    if not (left_grasp[0, 3] > 0.1 or right_grasp[0, 3] < -0.1):
+                        #also remove grasps if the z value is less than 0.05
+                        if grasp1[2, 3] > 0.10 and grasp2[2, 3] > 0.10:
+                            new_grasps.append(grasp1)
+                            new_grasps.append(grasp2)
+        
+        ###Only save grasp pairs that have a poitive x value for both grasps
+        # new_grasps = []
+        # for idx in range(len(generated_grasps)):
+        #     if idx % 2 == 0:
+        #         grasp1 = generated_grasps[idx]
+        #         grasp2 = generated_grasps[idx+1]
+        #         if grasp1[0, 3] < 0 and grasp2[0, 3] < 0:
+        #             new_grasps.append(grasp1)
+        #             new_grasps.append(grasp2)
         print("Number of grasps before removing pairs", len(generated_grasps))
         print("Number of grasps after removing pairs with similar grasps", len(new_grasps))
 
@@ -118,67 +134,443 @@ class PointcloudParser():
         rospy.init_node('pointcloud_listener', anonymous=True)
         rospy.spin()
 
+    def publish_control_points(self, control_points_both, zero_points, mid_points):
+        
+        point_pub1_left = rospy.Publisher('/zeropoint_leftgripper', PointStamped, queue_size=10)
+        point_pub2_left = rospy.Publisher('/midpoint_leftgripper', PointStamped, queue_size=10)
+        point_pub3_left = rospy.Publisher('/end_pointleft_leftgripper', PointStamped, queue_size=10)
+        point_pub4_left = rospy.Publisher('/end_pointright_leftgripper', PointStamped, queue_size=10)
+        point_pub5_left = rospy.Publisher('/mid_pointleft_leftgripper', PointStamped, queue_size=10)
+        point_pub6_left = rospy.Publisher('/mid_pointright_leftgripper', PointStamped, queue_size=10)
+        control_points = control_points_both[0]
+        zero_point = zero_points[0]
+        mid_point = mid_points[0]
+        #publish all the relevant control points to visualize in rviz and debug
+        zeropoint = PointStamped()
+        zeropoint.header.frame_id = "world_base_link"
+        zeropoint.point.x = zero_point[0]
+        zeropoint.point.y = zero_point[1]
+        zeropoint.point.z = zero_point[2]
+        point_pub1_left.publish(zeropoint)
+        midpoint = PointStamped()
+        midpoint.header.frame_id = "world_base_link"
+        midpoint.point.x = mid_point[0]
+        midpoint.point.y = mid_point[1]
+        midpoint.point.z = mid_point[2]
+        point_pub2_left.publish(midpoint)
 
+        end_pointleft = PointStamped()
+        end_pointleft.header.frame_id = "world_base_link"
+        end_pointleft.point.x = control_points[4][0]
+        end_pointleft.point.y = control_points[4][1]
+        end_pointleft.point.z = control_points[4][2]
+        point_pub3_left.publish(end_pointleft)
+
+        end_pointright = PointStamped()
+        end_pointright.header.frame_id = "world_base_link"
+        end_pointright.point.x = control_points[5][0]
+        end_pointright.point.y = control_points[5][1]
+        end_pointright.point.z = control_points[5][2]
+        point_pub4_left.publish(end_pointright)
+
+        mid_pointleft = PointStamped()
+        mid_pointleft.header.frame_id = "world_base_link"
+        mid_pointleft.point.x = control_points[2][0]
+        mid_pointleft.point.y = control_points[2][1]
+        mid_pointleft.point.z = control_points[2][2]
+        point_pub5_left.publish(mid_pointleft)
+
+        mid_pointright = PointStamped()
+        mid_pointright.header.frame_id = "world_base_link"
+        mid_pointright.point.x = control_points[3][0]
+        mid_pointright.point.y = control_points[3][1]
+        mid_pointright.point.z = control_points[3][2]
+        point_pub6_left.publish(mid_pointright)
+
+
+        point_pub1_right = rospy.Publisher('/zeropoint_rightgripper', PointStamped, queue_size=10)
+        point_pub2_right = rospy.Publisher('/midpoint_rightgripper', PointStamped, queue_size=10)
+        point_pub3_right = rospy.Publisher('/end_pointleft_rightgripper', PointStamped, queue_size=10)
+        point_pub4_right = rospy.Publisher('/end_pointright_rightgripper', PointStamped, queue_size=10)
+        point_pub5_right = rospy.Publisher('/mid_pointleft_rightgripper', PointStamped, queue_size=10)
+        point_pub6_right = rospy.Publisher('/mid_pointright_rightgripper', PointStamped, queue_size=10)
+
+        control_points = control_points_both[1]
+        zero_point = zero_points[1]
+        mid_point = mid_points[1]
+        zeropoint = PointStamped()
+        zeropoint.header.frame_id = "world_base_link"
+        zeropoint.point.x = zero_point[0]
+        zeropoint.point.y = zero_point[1]
+        zeropoint.point.z = zero_point[2]
+        point_pub1_right.publish(zeropoint)
+        midpoint = PointStamped()
+        midpoint.header.frame_id = "world_base_link"
+        midpoint.point.x = mid_point[0]
+        midpoint.point.y = mid_point[1]
+        midpoint.point.z = mid_point[2]
+        point_pub2_right.publish(midpoint)
+
+        end_pointleft = PointStamped()
+        end_pointleft.header.frame_id = "world_base_link"
+        end_pointleft.point.x = control_points[4][0]
+        end_pointleft.point.y = control_points[4][1]
+        end_pointleft.point.z = control_points[4][2]
+        point_pub3_right.publish(end_pointleft)
+
+        end_pointright = PointStamped()
+        end_pointright.header.frame_id = "world_base_link"
+        end_pointright.point.x = control_points[5][0]
+        end_pointright.point.y = control_points[5][1]
+        end_pointright.point.z = control_points[5][2]
+        point_pub4_right.publish(end_pointright)
+
+        mid_pointleft = PointStamped()
+        mid_pointleft.header.frame_id = "world_base_link"
+        mid_pointleft.point.x = control_points[2][0]
+        mid_pointleft.point.y = control_points[2][1]
+        mid_pointleft.point.z = control_points[2][2]
+        point_pub5_right.publish(mid_pointleft)
+
+        mid_pointright = PointStamped()
+        mid_pointright.header.frame_id = "world_base_link"
+        mid_pointright.point.x = control_points[3][0]
+        mid_pointright.point.y = control_points[3][1]
+        mid_pointright.point.z = control_points[3][2]
+        point_pub6_right.publish(mid_pointright)
     def execute_grasp(self,grasps):
         rospy.wait_for_service('/behaviors_service')
         behaviors_service = rospy.ServiceProxy('/behaviors_service', behaviors)
         test_behavior = behaviorsRequest()
-
         test_behavior.robot='dual'
-        test_behavior.behavior='go_to_initial_pose'
-        result = behaviors_service(test_behavior)
         # print("Move to initial pose result: ", result)
-        time.sleep(3)
-
+        time.sleep(5)
+        print("Number of grasps: ", len(grasps))
         for idx in range(len(grasps)):
-
-            # test_behavior.behavior='IK_move_to_pose_real_time'
-            test_behavior.behavior='visualize_target_ee_pose'
+            test_behaviour_left = behaviorsRequest()
+            test_behaviour_right = behaviorsRequest()
+            test_behaviour_left.robot='left'
+            test_behaviour_right.robot='right'
+            test_behaviour_left.behavior='IK_move_to_pose_real_time'
+            test_behaviour_right.behavior='IK_move_to_pose_real_time'
+            # test_behavior.behavior='visualize_target_ee_pose'
             if idx % 2 == 0:
+                test_behavior.behavior='go_to_initial_top_pose'
+                result = behaviors_service(test_behavior)
                 print("Grasp pair: ", (idx/2) + 1)
                 grasp1 = grasps[idx]
                 grasp2 = grasps[idx+1]
+                control_points_both = []
+                zero_points_both = []
+                mid_points_both = []
+                ###Code snippet to move the grasp pose slightly away from the object
+                ###This is to compensate for the different gripper used when training
+                #First do it for the first grasp
+                og_control_points = utils.get_control_point_tensor(1, False)
+                shape = og_control_points.shape
+                ones = np.ones((shape[0], shape[1], 1), dtype=np.float32)
+                control_points = np.concatenate((og_control_points, ones), -1)
+                control_points = np.matmul(control_points, np.transpose([grasp1], (0, 2, 1)))
+                control_points = control_points[:, :,:3]
+                control_points = control_points[0]
+                # print("Control points: ", control_points.shape)
+                mid_point = np.zeros(3)
+                mid_point[0] = (control_points[2][0] + control_points[3][0]) /2.0
+                mid_point[1] = (control_points[2][1] + control_points[3][1]) /2.0
+                mid_point[2] = (control_points[2][2] + control_points[3][2]) /2.0
+                zero_point = control_points[0]
+                # print("point 1: ", control_points[1])
+                # print("point 2: ", control_points[2])
+
+                control_points_both.append(control_points)
+                zero_points_both.append(zero_point)
+                mid_points_both.append(mid_point)
+
+                # print("Mid point: ", mid_point)
+                # print("Zero point: ", zero_point)
+                x_diff = zero_point[0] - mid_point[0]
+                y_diff = zero_point[1] - mid_point[1]
+                z_diff = zero_point[2] - mid_point[2]
+                # y_diff = mid_point[1] - zero_point[1]
+                # z_diff = mid_point[2] - zero_point[2]
+                # print("X diff: ", x_diff)
+                # print("Y diff: ", y_diff)
+                # print("Z diff: ", z_diff)
+                delta = 0.190
+                delta_initial = 0.250
+                sum_of_diffs = abs(x_diff) + abs(y_diff) + abs(z_diff)
+                x_change = (x_diff/sum_of_diffs) * delta
+                # print("X change: ", x_change)
+                x_change_initial = (x_diff/sum_of_diffs) * delta_initial
+                # print("X_change initial: ", x_change_initial)
+                y_change = (y_diff/sum_of_diffs) * delta
+                y_change_initial = (y_diff/sum_of_diffs) * delta_initial
+                z_change = (z_diff/sum_of_diffs) * delta
+                z_change_initial = (z_diff/sum_of_diffs) * delta_initial
+                # print("X change: ", x_change)
+                # print("Y change: ", y_change)
+                # print("Z change: ", z_change)
+                delta_array = np.array([x_change, y_change, z_change])
+                delta_array_initial = np.array([x_change_initial, y_change_initial, z_change_initial])
+                grasp1_initial = np.copy(grasp1)
+                grasp1[:3, 3] += delta_array
+                grasp1_initial[:3, 3] += delta_array_initial
+
+                #Now do it for the second grasp
+                og_control_points = utils.get_control_point_tensor(1, False)
+                shape = og_control_points.shape
+                ones = np.ones((shape[0], shape[1], 1), dtype=np.float32)
+                control_points = np.concatenate((og_control_points, ones), -1)
+                control_points = np.matmul(control_points, np.transpose([grasp2], (0, 2, 1)))
+                control_points = control_points[:, :,:3]
+                control_points = control_points[0]
+
+                mid_point = np.zeros(3)
+                mid_point[0] = (control_points[2][0] + control_points[3][0]) /2.0
+                mid_point[1] = (control_points[2][1] + control_points[3][1]) /2.0
+                mid_point[2] = (control_points[2][2] + control_points[3][2]) /2.0
+
+                zero_point = control_points[0]
+
+                control_points_both.append(control_points)
+                zero_points_both.append(zero_point)
+                mid_points_both.append(mid_point)
+                # print("Publishing control points")
+                # self.publish_control_points(control_points_both, zero_points_both, mid_points_both)
+
+                x_diff = zero_point[0] - mid_point[0]
+                y_diff = zero_point[1] - mid_point[1]
+                z_diff = zero_point[2] - mid_point[2]
+
+                sum_of_diffs = abs(x_diff) + abs(y_diff) + abs(z_diff)
+                x_change = (x_diff/sum_of_diffs) * delta
+                x_change_initial = (x_diff/sum_of_diffs) * delta_initial
+                y_change = (y_diff/sum_of_diffs) * delta
+                y_change_initial = (y_diff/sum_of_diffs) * delta_initial
+                z_change = (z_diff/sum_of_diffs) * delta
+                z_change_initial = (z_diff/sum_of_diffs) * delta_initial
+
+                delta_array = np.array([x_change, y_change, z_change])
+                delta_array_initial = np.array([x_change_initial, y_change_initial, z_change_initial])
+                grasp2_initial = np.copy(grasp2)
+                grasp2[:3, 3] += delta_array
+                grasp2_initial[:3, 3] += delta_array_initial
+                ### End of code snippet
+
+                #first do a rotation of 90 degrees around the z-axis
+                R = tra.rotation_matrix(np.pi/2, [0, 0, 1])
+                grasp1[:3, :3] = np.matmul(grasp1[:3, :3], R[:3, :3].T)
+                grasp2[:3, :3] = np.matmul(grasp2[:3, :3], R[:3, :3].T)
+                grasp1_initial[:3, :3] = np.matmul(grasp1_initial[:3, :3], R[:3, :3].T)
+                grasp2_initial[:3, :3] = np.matmul(grasp2_initial[:3, :3], R[:3, :3].T)
+                
+                # #then do a rotation of 90 degrees around the x-axis
+                R = tra.rotation_matrix(np.pi/2, [0, 1, 0])
+                grasp1[:3, :3] = np.matmul(grasp1[:3, :3], R[:3, :3].T) 
+                grasp2[:3, :3] = np.matmul(grasp2[:3, :3], R[:3, :3].T)
+                grasp1_initial[:3, :3] = np.matmul(grasp1_initial[:3, :3], R[:3, :3].T)
+                grasp2_initial[:3, :3] = np.matmul(grasp2_initial[:3, :3], R[:3, :3].T)
+                #print the coordinates of the positoins of the grasp
+                # print("Grasp 1: ", grasp1[:3, 3])
+
+                # R = tra.rotation_matrix(-np.pi/2, [1, 0, 0])
+                # grasp1[:3, :3] = np.matmul(grasp1[:3, :3], R[:3, :3].T) 
+                # grasp2[:3, :3] = np.matmul(grasp2[:3, :3], R[:3, :3].T)
+
+                
+                
                 #Determine which grasp is on the left and which is on the right
-                if grasp1[0, 3] < 0:
+                if grasp1[0, 3] < grasp2[0, 3]:
                     left_grasp = grasp1
                     right_grasp = grasp2
+                    left_grasp_initial = grasp1_initial
+                    right_grasp_initial = grasp2_initial
                 else:
                     left_grasp = grasp2
                     right_grasp = grasp1
+                    left_grasp_initial = grasp2_initial
+                    right_grasp_initial = grasp1_initial
+
+                ###Individual arms
+                #First go to the initial pre-grasp pose
+                # test_behaviour_left.left_target_pose.pose.position.x = left_grasp_initial[0, 3] #+ 0.25
+                # test_behaviour_left.left_target_pose.pose.position.y = left_grasp_initial[1, 3]
+                # test_behaviour_left.left_target_pose.pose.position.z = left_grasp_initial[2, 3]
+                # quaternion = self.rotation_matrix_to_quaternion(left_grasp_initial[:3, :3])
+                # test_behaviour_left.left_target_pose.pose.orientation.x = quaternion[0]
+                # test_behaviour_left.left_target_pose.pose.orientation.y = quaternion[1]
+                # test_behaviour_left.left_target_pose.pose.orientation.z = quaternion[2]
+                # test_behaviour_left.left_target_pose.pose.orientation.w = quaternion[3]
+                # test_behaviour_left.behavior='IK_move_to_pose_real_time'
+                # result_left = behaviors_service(test_behaviour_left)
+                # print("Move to initial left pre-grasp pose result: ", result_left.result)
+                # if not result_left.result:
+                #     print("Initial left pre-grasp pose failed, moving to next pair")
+                #     # time.sleep(1)
+                #     continue
+                # test_behaviour_right.right_target_pose.pose.position.x = right_grasp_initial[0, 3] #+ 0.25
+                # test_behaviour_right.right_target_pose.pose.position.y = right_grasp_initial[1, 3]
+                # test_behaviour_right.right_target_pose.pose.position.z = right_grasp_initial[2, 3]
+                # quaternion = self.rotation_matrix_to_quaternion(right_grasp_initial[:3, :3])
+                # test_behaviour_right.right_target_pose.pose.orientation.x = quaternion[0]
+                # test_behaviour_right.right_target_pose.pose.orientation.y = quaternion[1]
+                # test_behaviour_right.right_target_pose.pose.orientation.z = quaternion[2]
+                # test_behaviour_right.right_target_pose.pose.orientation.w = quaternion[3]
+                # test_behaviour_right.behavior='IK_move_to_pose_real_time'
+                # result_right = behaviors_service(test_behaviour_right)
+                # print("Move to initial right pre-grasp pose result: ", result_right.result)
+                # if not result_right.result:
+                #     print("Initial right pre-grasp pose failed, moving to next pair")
+                #     # time.sleep(1)
+                #     continue
+                # time.sleep(1)
+
+                # test_behaviour_left.left_target_pose.pose.position.x = left_grasp[0, 3]
+                # test_behaviour_left.left_target_pose.pose.position.y = left_grasp[1, 3]
+                # test_behaviour_left.left_target_pose.pose.position.z = left_grasp[2, 3]
+                # # Convert the 3x3 rotation matrix to a quaternion
+                # quaternion = self.rotation_matrix_to_quaternion(left_grasp[:3, :3])
+                # test_behaviour_left.left_target_pose.pose.orientation.x = quaternion[0]
+                # test_behaviour_left.left_target_pose.pose.orientation.y = quaternion[1]
+                # test_behaviour_left.left_target_pose.pose.orientation.z = quaternion[2]
+                # test_behaviour_left.left_target_pose.pose.orientation.w = quaternion[3]
+                
+                # # test_behaviour_left.behavior='visualize_target_ee_pose'
+                # # behaviors_service(test_behaviour_left)
+                
+                # test_behaviour_left.behavior='IK_move_to_pose_real_time'
+                # result_left = behaviors_service(test_behaviour_left)
+                # print("Move to left grasp pose result: ", result_left.result)
+                # if not result_left.result:
+                #     print("Left grasp failed, moving to next pair")
+                #     test_behavior.behavior='go_to_initial_pose'
+                #     result = behaviors_service(test_behavior)
+                #     # time.sleep(1)
+                #     continue
+
+                # test_behaviour_right.right_target_pose.pose.position.x = right_grasp[0, 3]
+                # test_behaviour_right.right_target_pose.pose.position.y = right_grasp[1, 3]
+                # test_behaviour_right.right_target_pose.pose.position.z = right_grasp[2, 3]
+                # # Convert the 3x3 rotation matrix to a quaternion
+                # quaternion = self.rotation_matrix_to_quaternion(right_grasp[:3, :3])
+                # test_behaviour_right.right_target_pose.pose.orientation.x = quaternion[0]
+                # test_behaviour_right.right_target_pose.pose.orientation.y = quaternion[1]
+                # test_behaviour_right.right_target_pose.pose.orientation.z = quaternion[2]
+                # test_behaviour_right.right_target_pose.pose.orientation.w = quaternion[3]
+
+                # # test_behaviour_right.behavior='visualize_target_ee_pose'
+                # # behaviors_service(test_behaviour_right)
+                
+                # test_behaviour_right.behavior='IK_move_to_pose_real_time'
+                # result_right = behaviors_service(test_behaviour_right)
+
+                # print("Move to right grasp pose result: ", result_right.result)
+                # if not result_right.result:
+                #     print("Right grasp failed, moving to next pair")
+                #     test_behavior.behavior='go_to_initial_pose'
+                #     result = behaviors_service(test_behavior)
+                #     # time.sleep(1)
+                #     continue
+                # time.sleep(3)
+                ### End of individual arms
+
+                ###Dual arm
+
+                test_behavior.robot='dual'
+                test_behavior.behavior='IK_move_to_pose'
+                #First go to the initial pre-grasp pose
+                test_behavior.right_target_pose.pose.position.x = right_grasp_initial[0, 3] #+ 0.25
+                test_behavior.right_target_pose.pose.position.y = right_grasp_initial[1, 3]
+                test_behavior.right_target_pose.pose.position.z = right_grasp_initial[2, 3]
+                # Convert the 3x3 rotation matrix to a quaternion
+                # quaternion = self.quaternion_from_matrix(right_grasp)
+                # quaternion = self.normalize_quaternion(quaternion)
+                quaternion = self.rotation_matrix_to_quaternion(right_grasp_initial[:3, :3])
+                test_behavior.right_target_pose.pose.orientation.x = quaternion[0]
+                test_behavior.right_target_pose.pose.orientation.y = quaternion[1]
+                test_behavior.right_target_pose.pose.orientation.z = quaternion[2]
+                test_behavior.right_target_pose.pose.orientation.w = quaternion[3] 
+
+                test_behavior.left_target_pose.pose.position.x = left_grasp_initial[0, 3] #- 0.25
+                test_behavior.left_target_pose.pose.position.y = left_grasp_initial[1, 3]
+                test_behavior.left_target_pose.pose.position.z = left_grasp_initial[2, 3]
+                # Convert the 3x3 rotation matrix to a quaternion
+                # quaternion = self.quaternion_from_matrix(left_grasp)
+                # quaternion = self.normalize_quaternion(quaternion)
+                quaternion = self.rotation_matrix_to_quaternion(left_grasp_initial[:3, :3])
+                test_behavior.left_target_pose.pose.orientation.x = quaternion[0]
+                test_behavior.left_target_pose.pose.orientation.y = quaternion[1]
+                test_behavior.left_target_pose.pose.orientation.z = quaternion[2]
+                test_behavior.left_target_pose.pose.orientation.w = quaternion[3]
+                # test_behavior.behavior='visualize_target_ee_pose'
+                # result = behaviors_service(test_behavior)
+                result = behaviors_service(test_behavior)
+                print("Move to initial pre-grasp pose result: ", result.result)
+                if not result.result:
+                    print("Initial pre-grasp pose failed, moving to next pair")
+                    # time.sleep(1)
+                    continue
+                time.sleep(3)
+
+                test_behavior.robot='dual'
+                test_behavior.behavior='IK_move_to_pose'
                 
                 test_behavior.right_target_pose.pose.position.x = right_grasp[0, 3] #+ 0.25
                 test_behavior.right_target_pose.pose.position.y = right_grasp[1, 3]
                 test_behavior.right_target_pose.pose.position.z = right_grasp[2, 3]
                 # Convert the 3x3 rotation matrix to a quaternion
-                quaternion = self.quaternion_from_matrix(right_grasp)
-                test_behavior.right_target_pose.pose.orientation.x = quaternion[0] #- 0.017
-                test_behavior.right_target_pose.pose.orientation.y = quaternion[1] #- 0.017
-                test_behavior.right_target_pose.pose.orientation.z = quaternion[2] #+ 0.706
-                test_behavior.right_target_pose.pose.orientation.w = quaternion[3] #+ 0.706
+                # quaternion = self.quaternion_from_matrix(right_grasp)
+                # quaternion = self.normalize_quaternion(quaternion)
+                quaternion = self.rotation_matrix_to_quaternion(right_grasp[:3, :3])
+                test_behavior.right_target_pose.pose.orientation.x = quaternion[0]
+                test_behavior.right_target_pose.pose.orientation.y = quaternion[1]
+                test_behavior.right_target_pose.pose.orientation.z = quaternion[2]
+                test_behavior.right_target_pose.pose.orientation.w = quaternion[3] 
 
                 test_behavior.left_target_pose.pose.position.x = left_grasp[0, 3] #- 0.25
                 test_behavior.left_target_pose.pose.position.y = left_grasp[1, 3]
                 test_behavior.left_target_pose.pose.position.z = left_grasp[2, 3]
                 # Convert the 3x3 rotation matrix to a quaternion
-                quaternion = self.quaternion_from_matrix(left_grasp)
-                test_behavior.left_target_pose.pose.orientation.x = quaternion[0] #- 0.017
-                test_behavior.left_target_pose.pose.orientation.y = quaternion[1] #- 0.017
-                test_behavior.left_target_pose.pose.orientation.z = quaternion[2] #+ 0.706
-                test_behavior.left_target_pose.pose.orientation.w = quaternion[3] #+ 0.706
-                result = behaviors_service(test_behavior)
-                # print("Move to grasp pose result: ", result)
-                time.sleep(1)
+                # quaternion = self.quaternion_from_matrix(left_grasp)
+                # quaternion = self.normalize_quaternion(quaternion)
+                quaternion = self.rotation_matrix_to_quaternion(left_grasp[:3, :3])
+                test_behavior.left_target_pose.pose.orientation.x = quaternion[0]
+                test_behavior.left_target_pose.pose.orientation.y = quaternion[1]
+                test_behavior.left_target_pose.pose.orientation.z = quaternion[2]
+                test_behavior.left_target_pose.pose.orientation.w = quaternion[3]
 
-                #return to initial pose
-                # test_behavior.behavior='go_to_initial_pose'
+                # test_behavior.behavior='visualize_target_ee_pose'
+                # result = behaviors_service(test_behavior)
                 result = behaviors_service(test_behavior)
-                time.sleep(0.1)
+                print("Move to grasp pose result: ", result.result)
+                time.sleep(3)
+
+                ###End of dual arm
+                #If both grasps resulted in true
+                # if result_left.result and result_right.result:
+                #     print("Both grasps succeeded, attempting to close the gripper")
+                #     #close the gripper
+                #     test_behavior.behavior='close_gripper'
+                #     result = behaviors_service(test_behavior)
+                #     print("Close gripper result: ", result.result)
+                #     time.sleep(3)
+                #     #open the gripper
+                #     test_behavior.behavior='open_gripper'
+                #     result = behaviors_service(test_behavior)
+                #     print("Open gripper result: ", result.result)
+                    
+                    #print all the components of result
+                    # print(result)
+                #return to initial pose
+                #print all the components of result
+                # print(result)
+                # time.sleep(3)
 
 
         rate = rospy.Rate(10)  # 10 Hz
         while not rospy.is_shutdown():
-            test_behavior.behavior='go_to_initial_pose'
-            result = behaviors_service(test_behavior)
+            # test_behavior.behavior='go_to_initial_pose'
+            # result = behaviors_service(test_behavior)
             rate.sleep()
 
     def publish_grasps(self,grasps):
@@ -244,8 +636,44 @@ class PointcloudParser():
         if norm == 0:
             raise ValueError("Cannot normalize a zero quaternion.")
         return [qi / norm for qi in q]
+    def rotation_matrix_to_quaternion(self, R):
+        """
+        Convert a 3x3 rotation matrix to a quaternion (w, x, y, z).
+        
+        Parameters:
+            R (numpy.ndarray): 3x3 rotation matrix.
+        
+        Returns:
+            numpy.ndarray: Quaternion (w, x, y, z).
+        """
+        trace = np.trace(R)
+        
+        if trace > 0:
+            S = np.sqrt(trace + 1.0) * 2  # S = 4 * qw
+            qw = 0.25 * S
+            qx = (R[2, 1] - R[1, 2]) / S
+            qy = (R[0, 2] - R[2, 0]) / S
+            qz = (R[1, 0] - R[0, 1]) / S
+        elif (R[0, 0] > R[1, 1]) and (R[0, 0] > R[2, 2]):
+            S = np.sqrt(1.0 + R[0, 0] - R[1, 1] - R[2, 2]) * 2  # S = 4 * qx
+            qw = (R[2, 1] - R[1, 2]) / S
+            qx = 0.25 * S
+            qy = (R[0, 1] + R[1, 0]) / S
+            qz = (R[0, 2] + R[2, 0]) / S
+        elif R[1, 1] > R[2, 2]:
+            S = np.sqrt(1.0 + R[1, 1] - R[0, 0] - R[2, 2]) * 2  # S = 4 * qy
+            qw = (R[0, 2] - R[2, 0]) / S
+            qx = (R[0, 1] + R[1, 0]) / S
+            qy = 0.25 * S
+            qz = (R[1, 2] + R[2, 1]) / S
+        else:
+            S = np.sqrt(1.0 + R[2, 2] - R[0, 0] - R[1, 1]) * 2  # S = 4 * qz
+            qw = (R[1, 0] - R[0, 1]) / S
+            qx = (R[0, 2] + R[2, 0]) / S
+            qy = (R[1, 2] + R[2, 1]) / S
+            qz = 0.25 * S
 
-
+        return np.array([qx, qy, qz, qw])
     def quaternion_from_matrix(self, matrix):
         """
         Convert a 3x3 rotation matrix to a quaternion (x, y, z, w)
@@ -328,6 +756,11 @@ def make_parser():
                         help="If enabled, the model will predict two grasps.")
     return parser
 if __name__ == '__main__':
+    behaviors_service = rospy.ServiceProxy('/behaviors_service', behaviors)
+    test_behavior = behaviorsRequest()
+    test_behavior.robot='dual'
+    test_behavior.behavior='go_to_initial_pose'
+    result = behaviors_service(test_behavior)
     parser = make_parser()
     pointcloud_parser = PointcloudParser("/aggregated_point_cloud", parser)
     pointcloud_parser.listener()

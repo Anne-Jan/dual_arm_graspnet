@@ -148,7 +148,7 @@ class GraspEstimator:
         pc2 = copy.deepcopy(pc)
         pc2 += np.expand_dims(pc_mean, 0)
         ###
-        draw_scene(pc2, save_path='./demo/pc_rescaled.png')
+        # draw_scene(pc2, save_path='./demo/pc_rescaled.png')
         pc = np.tile(pc, (self.num_grasp_samples, 1, 1))
         pc = torch.from_numpy(pc).float().to(self.device)
         pcs = []
@@ -471,7 +471,7 @@ class GraspEstimator:
 
                 
                
-    def final_selection(self, grasps, succes_prob, og_pc, collision_threshold = 0.005, threshold_distance = 0.005):
+    def final_selection(self, grasps, succes_prob, og_pc, collision_threshold = 0.001, threshold_distance = 0.005):
         control_points = utils.control_points_from_grasps(grasps, 'cp', pc = None, scale = self.scale)
         # print("ammount of grasps before", len(grasps), np.array(grasps).shape, control_points.shape)
         #For each grasp pair, check if the control points enclose the point cloud
