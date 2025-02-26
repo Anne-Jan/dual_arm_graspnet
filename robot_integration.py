@@ -82,7 +82,7 @@ class PointcloudParser():
                 #Calculate the distance between the two grasps
                 distance = np.linalg.norm(grasp1[:3, 3] - grasp2[:3, 3])
                 # print("Distance between grasps", distance)
-                if distance > 0.025:
+                if distance > 0.015:
                     #Also check if the left grasp is not too much on the right side and the right grasp is not too much on the left side
                     if grasp1[0, 3] < grasp2[0, 3]:
                         left_grasp = grasp1
@@ -91,12 +91,14 @@ class PointcloudParser():
                         left_grasp = grasp2
                         right_grasp = grasp1
 
-                    if not (left_grasp[0, 3] > 0.1 or right_grasp[0, 3] < -0.1):
-                        #also remove grasps if the z value is less than 0.05
-                        if grasp1[2, 3] > 0.10 and grasp2[2, 3] > 0.10:
-                            new_grasps.append(grasp1)
-                            new_grasps.append(grasp2)
-        
+                    # if not (left_grasp[0, 3] < -0.075 or right_grasp[0, 3] > 0.075):
+                            #also remove grasps if the z value is less than 0.05
+                            #Check if the y value is not larger than 0.85 or smaller than 0.1 (too far or too close to the object)
+                        if (left_grasp[1, 3] > 0.1 and left_grasp[1,3] < 0.85) and (right_grasp[1, 3] > 0.1 and right_grasp[1,3] < 0.85):
+                            if grasp1[2, 3] > 0.05 and grasp2[2, 3] > 0.05:
+                                new_grasps.append(grasp1)
+                                new_grasps.append(grasp2)
+                
         ###Only save grasp pairs that have a poitive x value for both grasps
         # new_grasps = []
         # for idx in range(len(generated_grasps)):
@@ -241,22 +243,24 @@ class PointcloudParser():
     def execute_grasp(self,grasps):
         rospy.wait_for_service('/behaviors_service')
         behaviors_service = rospy.ServiceProxy('/behaviors_service', behaviors)
-        test_behavior = behaviorsRequest()
-        test_behavior.robot='dual'
         # print("Move to initial pose result: ", result)
         time.sleep(5)
         print("Number of grasps: ", len(grasps))
         for idx in range(len(grasps)):
-            test_behaviour_left = behaviorsRequest()
-            test_behaviour_right = behaviorsRequest()
-            test_behaviour_left.robot='left'
-            test_behaviour_right.robot='right'
-            test_behaviour_left.behavior='IK_move_to_pose_real_time'
-            test_behaviour_right.behavior='IK_move_to_pose_real_time'
-            # test_behavior.behavior='visualize_target_ee_pose'
             if idx % 2 == 0:
-                test_behavior.behavior='go_to_initial_top_pose'
+                test_behavior = behaviorsRequest()
+                test_behavior.robot='dual'
+                test_behaviour_left = behaviorsRequest()
+                test_behaviour_right = behaviorsRequest()
+                test_behaviour_left.robot='left'
+                test_behaviour_right.robot='right'
+                # test_behaviour_left.behavior='IK_move_to_pose_real_time'
+                # test_behaviour_right.behavior='IK_move_to_pose_real_time'
+                # test_behavior.behavior='visualize_target_ee_pose'
+                # test_behavior.behavior='go_to_initial_top_pose'
+                test_behavior.behavior='go_to_initial_pose'
                 result = behaviors_service(test_behavior)
+                test_behavior.behavior='IK_move_to_pose'
                 print("Grasp pair: ", (idx/2) + 1)
                 grasp1 = grasps[idx]
                 grasp2 = grasps[idx+1]
@@ -297,7 +301,7 @@ class PointcloudParser():
                 # print("Y diff: ", y_diff)
                 # print("Z diff: ", z_diff)
                 delta = 0.190
-                delta_initial = 0.250
+                delta_initial = 0.300
                 sum_of_diffs = abs(x_diff) + abs(y_diff) + abs(z_diff)
                 x_change = (x_diff/sum_of_diffs) * delta
                 # print("X change: ", x_change)
@@ -389,161 +393,191 @@ class PointcloudParser():
                     left_grasp = grasp2
                     right_grasp = grasp1
                     left_grasp_initial = grasp2_initial
-                    right_grasp_initial = grasp1_initial
+                    right_grasp_initial = grasp1_initial    
 
-                ###Individual arms
-                #First go to the initial pre-grasp pose
-                # test_behaviour_left.left_target_pose.pose.position.x = left_grasp_initial[0, 3] #+ 0.25
-                # test_behaviour_left.left_target_pose.pose.position.y = left_grasp_initial[1, 3]
-                # test_behaviour_left.left_target_pose.pose.position.z = left_grasp_initial[2, 3]
-                # quaternion = self.rotation_matrix_to_quaternion(left_grasp_initial[:3, :3])
-                # test_behaviour_left.left_target_pose.pose.orientation.x = quaternion[0]
-                # test_behaviour_left.left_target_pose.pose.orientation.y = quaternion[1]
-                # test_behaviour_left.left_target_pose.pose.orientation.z = quaternion[2]
-                # test_behaviour_left.left_target_pose.pose.orientation.w = quaternion[3]
-                # test_behaviour_left.behavior='IK_move_to_pose_real_time'
-                # result_left = behaviors_service(test_behaviour_left)
-                # print("Move to initial left pre-grasp pose result: ", result_left.result)
-                # if not result_left.result:
-                #     print("Initial left pre-grasp pose failed, moving to next pair")
-                #     # time.sleep(1)
-                #     continue
-                # test_behaviour_right.right_target_pose.pose.position.x = right_grasp_initial[0, 3] #+ 0.25
-                # test_behaviour_right.right_target_pose.pose.position.y = right_grasp_initial[1, 3]
-                # test_behaviour_right.right_target_pose.pose.position.z = right_grasp_initial[2, 3]
-                # quaternion = self.rotation_matrix_to_quaternion(right_grasp_initial[:3, :3])
-                # test_behaviour_right.right_target_pose.pose.orientation.x = quaternion[0]
-                # test_behaviour_right.right_target_pose.pose.orientation.y = quaternion[1]
-                # test_behaviour_right.right_target_pose.pose.orientation.z = quaternion[2]
-                # test_behaviour_right.right_target_pose.pose.orientation.w = quaternion[3]
-                # test_behaviour_right.behavior='IK_move_to_pose_real_time'
-                # result_right = behaviors_service(test_behaviour_right)
-                # print("Move to initial right pre-grasp pose result: ", result_right.result)
-                # if not result_right.result:
-                #     print("Initial right pre-grasp pose failed, moving to next pair")
-                #     # time.sleep(1)
-                #     continue
-                # time.sleep(1)
-
-                # test_behaviour_left.left_target_pose.pose.position.x = left_grasp[0, 3]
-                # test_behaviour_left.left_target_pose.pose.position.y = left_grasp[1, 3]
-                # test_behaviour_left.left_target_pose.pose.position.z = left_grasp[2, 3]
-                # # Convert the 3x3 rotation matrix to a quaternion
-                # quaternion = self.rotation_matrix_to_quaternion(left_grasp[:3, :3])
-                # test_behaviour_left.left_target_pose.pose.orientation.x = quaternion[0]
-                # test_behaviour_left.left_target_pose.pose.orientation.y = quaternion[1]
-                # test_behaviour_left.left_target_pose.pose.orientation.z = quaternion[2]
-                # test_behaviour_left.left_target_pose.pose.orientation.w = quaternion[3]
+                # if not ((left_grasp[1, 3] > 0.200 and left_grasp[1,3] < 0.98)) or not ((right_grasp[1, 3] > 0.200 and right_grasp[1,3] < 0.98)) or (left_grasp[0, 3] > 0.005 or right_grasp[0, 3] < -0.005):
+                #         print("Repositioned grasp is too close or too far from the object, skipping this pair")
+                #         print("Left grasp y: ", left_grasp[1, 3], "Right grasp y: ", right_grasp[1, 3])
+                #         print("Left grasp x: ", left_grasp[0, 3], "Right grasp x: ", right_grasp[0, 3])
+                #         print("Left grasp z: ", left_grasp[2, 3], "Right grasp z: ", right_grasp[2, 3])
+                #         continue
                 
-                # # test_behaviour_left.behavior='visualize_target_ee_pose'
-                # # behaviors_service(test_behaviour_left)
-                
-                # test_behaviour_left.behavior='IK_move_to_pose_real_time'
-                # result_left = behaviors_service(test_behaviour_left)
-                # print("Move to left grasp pose result: ", result_left.result)
-                # if not result_left.result:
-                #     print("Left grasp failed, moving to next pair")
-                #     test_behavior.behavior='go_to_initial_pose'
-                #     result = behaviors_service(test_behavior)
-                #     # time.sleep(1)
-                #     continue
+                #print the y coordinate of the left and right grasp
+                print("Left grasp x: ", left_grasp[0,3], "Left grasp y: ", left_grasp[1, 3], "Left grasp z: ", left_grasp[2, 3])
+                print("Right grasp x: ", right_grasp[0,3], "Right grasp y: ", right_grasp[1, 3], "Right grasp z: ", right_grasp[2, 3])
 
-                # test_behaviour_right.right_target_pose.pose.position.x = right_grasp[0, 3]
-                # test_behaviour_right.right_target_pose.pose.position.y = right_grasp[1, 3]
-                # test_behaviour_right.right_target_pose.pose.position.z = right_grasp[2, 3]
-                # # Convert the 3x3 rotation matrix to a quaternion
-                # quaternion = self.rotation_matrix_to_quaternion(right_grasp[:3, :3])
-                # test_behaviour_right.right_target_pose.pose.orientation.x = quaternion[0]
-                # test_behaviour_right.right_target_pose.pose.orientation.y = quaternion[1]
-                # test_behaviour_right.right_target_pose.pose.orientation.z = quaternion[2]
-                # test_behaviour_right.right_target_pose.pose.orientation.w = quaternion[3]
 
-                # # test_behaviour_right.behavior='visualize_target_ee_pose'
-                # # behaviors_service(test_behaviour_right)
-                
-                # test_behaviour_right.behavior='IK_move_to_pose_real_time'
-                # result_right = behaviors_service(test_behaviour_right)
-
-                # print("Move to right grasp pose result: ", result_right.result)
-                # if not result_right.result:
-                #     print("Right grasp failed, moving to next pair")
-                #     test_behavior.behavior='go_to_initial_pose'
-                #     result = behaviors_service(test_behavior)
-                #     # time.sleep(1)
-                #     continue
-                # time.sleep(3)
-                ### End of individual arms
-
-                ###Dual arm
-
-                test_behavior.robot='dual'
-                test_behavior.behavior='IK_move_to_pose'
-                #First go to the initial pre-grasp pose
-                test_behavior.right_target_pose.pose.position.x = right_grasp_initial[0, 3] #+ 0.25
-                test_behavior.right_target_pose.pose.position.y = right_grasp_initial[1, 3]
-                test_behavior.right_target_pose.pose.position.z = right_grasp_initial[2, 3]
-                # Convert the 3x3 rotation matrix to a quaternion
-                # quaternion = self.quaternion_from_matrix(right_grasp)
-                # quaternion = self.normalize_quaternion(quaternion)
-                quaternion = self.rotation_matrix_to_quaternion(right_grasp_initial[:3, :3])
-                test_behavior.right_target_pose.pose.orientation.x = quaternion[0]
-                test_behavior.right_target_pose.pose.orientation.y = quaternion[1]
-                test_behavior.right_target_pose.pose.orientation.z = quaternion[2]
-                test_behavior.right_target_pose.pose.orientation.w = quaternion[3] 
-
-                test_behavior.left_target_pose.pose.position.x = left_grasp_initial[0, 3] #- 0.25
-                test_behavior.left_target_pose.pose.position.y = left_grasp_initial[1, 3]
-                test_behavior.left_target_pose.pose.position.z = left_grasp_initial[2, 3]
-                # Convert the 3x3 rotation matrix to a quaternion
-                # quaternion = self.quaternion_from_matrix(left_grasp)
-                # quaternion = self.normalize_quaternion(quaternion)
+                ##Individual arms
+                # First go to the initial pre-grasp pose
+                test_behaviour_left.left_target_pose.pose.position.x = left_grasp_initial[0, 3] #+ 0.25
+                test_behaviour_left.left_target_pose.pose.position.y = left_grasp_initial[1, 3]
+                test_behaviour_left.left_target_pose.pose.position.z = left_grasp_initial[2, 3]
                 quaternion = self.rotation_matrix_to_quaternion(left_grasp_initial[:3, :3])
-                test_behavior.left_target_pose.pose.orientation.x = quaternion[0]
-                test_behavior.left_target_pose.pose.orientation.y = quaternion[1]
-                test_behavior.left_target_pose.pose.orientation.z = quaternion[2]
-                test_behavior.left_target_pose.pose.orientation.w = quaternion[3]
-                # test_behavior.behavior='visualize_target_ee_pose'
-                # result = behaviors_service(test_behavior)
-                result = behaviors_service(test_behavior)
-                print("Move to initial pre-grasp pose result: ", result.result)
-                if not result.result:
-                    print("Initial pre-grasp pose failed, moving to next pair")
+                test_behaviour_left.left_target_pose.pose.orientation.x = quaternion[0]
+                test_behaviour_left.left_target_pose.pose.orientation.y = quaternion[1]
+                test_behaviour_left.left_target_pose.pose.orientation.z = quaternion[2]
+                test_behaviour_left.left_target_pose.pose.orientation.w = quaternion[3]
+                test_behaviour_left.behavior='IK_move_to_pose_real_time'
+                result_left = behaviors_service(test_behaviour_left)
+                print("Move to initial left pre-grasp pose result: ", result_left.result)
+                if not result_left.result:
+                    print("Initial left pre-grasp pose failed, moving to next pair")
+                    # time.sleep(1)
+                    continue
+                test_behaviour_right.right_target_pose.pose.position.x = right_grasp_initial[0, 3] #+ 0.25
+                test_behaviour_right.right_target_pose.pose.position.y = right_grasp_initial[1, 3]
+                test_behaviour_right.right_target_pose.pose.position.z = right_grasp_initial[2, 3]
+                quaternion = self.rotation_matrix_to_quaternion(right_grasp_initial[:3, :3])
+                test_behaviour_right.right_target_pose.pose.orientation.x = quaternion[0]
+                test_behaviour_right.right_target_pose.pose.orientation.y = quaternion[1]
+                test_behaviour_right.right_target_pose.pose.orientation.z = quaternion[2]
+                test_behaviour_right.right_target_pose.pose.orientation.w = quaternion[3]
+                test_behaviour_right.behavior='IK_move_to_pose_real_time'
+                result_right = behaviors_service(test_behaviour_right)
+                print("Move to initial right pre-grasp pose result: ", result_right.result)
+                if not result_right.result:
+                    print("Initial right pre-grasp pose failed, moving to next pair")
+                    # time.sleep(1)
+                    continue
+                time.sleep(1)
+
+                test_behaviour_left.left_target_pose.pose.position.x = left_grasp[0, 3]
+                test_behaviour_left.left_target_pose.pose.position.y = left_grasp[1, 3]
+                test_behaviour_left.left_target_pose.pose.position.z = left_grasp[2, 3]
+                # Convert the 3x3 rotation matrix to a quaternion
+                quaternion = self.rotation_matrix_to_quaternion(left_grasp[:3, :3])
+                test_behaviour_left.left_target_pose.pose.orientation.x = quaternion[0]
+                test_behaviour_left.left_target_pose.pose.orientation.y = quaternion[1]
+                test_behaviour_left.left_target_pose.pose.orientation.z = quaternion[2]
+                test_behaviour_left.left_target_pose.pose.orientation.w = quaternion[3]
+                
+                # test_behaviour_left.behavior='visualize_target_ee_pose'
+                # behaviors_service(test_behaviour_left)
+                
+                test_behaviour_left.behavior='IK_move_to_pose_real_time'
+                result_left = behaviors_service(test_behaviour_left)
+                print("Move to left grasp pose result: ", result_left.result)
+                if not result_left.result:
+                    print("Left grasp failed, moving to next pair")
+                    test_behavior.behavior='go_to_initial_pose'
+                    result = behaviors_service(test_behavior)
+                    # time.sleep(1)
+                    continue
+
+                test_behaviour_right.right_target_pose.pose.position.x = right_grasp[0, 3]
+                test_behaviour_right.right_target_pose.pose.position.y = right_grasp[1, 3]
+                test_behaviour_right.right_target_pose.pose.position.z = right_grasp[2, 3]
+                # Convert the 3x3 rotation matrix to a quaternion
+                quaternion = self.rotation_matrix_to_quaternion(right_grasp[:3, :3])
+                test_behaviour_right.right_target_pose.pose.orientation.x = quaternion[0]
+                test_behaviour_right.right_target_pose.pose.orientation.y = quaternion[1]
+                test_behaviour_right.right_target_pose.pose.orientation.z = quaternion[2]
+                test_behaviour_right.right_target_pose.pose.orientation.w = quaternion[3]
+
+                # test_behaviour_right.behavior='visualize_target_ee_pose'
+                # behaviors_service(test_behaviour_right)
+                
+                test_behaviour_right.behavior='IK_move_to_pose_real_time'
+                result_right = behaviors_service(test_behaviour_right)
+
+                print("Move to right grasp pose result: ", result_right.result)
+                if not result_right.result:
+                    print("Right grasp failed, moving to next pair")
+                    test_behavior.behavior='go_to_initial_pose'
+                    result = behaviors_service(test_behavior)
                     # time.sleep(1)
                     continue
                 time.sleep(3)
 
-                test_behavior.robot='dual'
-                test_behavior.behavior='IK_move_to_pose'
+                # close the gripper
+                # test_behaviour_left.behavior='close_gripper'
+                # result_left = behaviors_service(test_behaviour_left)
+                # print("Close left gripper result: ", result_left.result)
+                # time.sleep(1)
+                # if result_left.result:
+                #     test_behaviour_right.behavior='close_gripper'
+                #     result_right = behaviors_service(test_behaviour_right)
+                #     print("Close right gripper result: ", result_right.result)
+                #     if result_right.result:
+                #         #grasp object
+                #         test_behaviour_left.behavior='grasp_object'
+                #         result = behaviors_service(test_behaviour_left)
+                # time.sleep(1)
+                ### End of individual arms
+
+                ###Dual arm
+
+                # for i in range(0,2):
+                #     # test_behavior.robot='dual'
+                #     #First go to the initial pre-grasp pose
+                #     test_behavior.right_target_pose.pose.position.x = right_grasp_initial[0, 3] #+ 0.25
+                #     test_behavior.right_target_pose.pose.position.y = right_grasp_initial[1, 3]
+                #     test_behavior.right_target_pose.pose.position.z = right_grasp_initial[2, 3]
                 
-                test_behavior.right_target_pose.pose.position.x = right_grasp[0, 3] #+ 0.25
-                test_behavior.right_target_pose.pose.position.y = right_grasp[1, 3]
-                test_behavior.right_target_pose.pose.position.z = right_grasp[2, 3]
-                # Convert the 3x3 rotation matrix to a quaternion
-                # quaternion = self.quaternion_from_matrix(right_grasp)
-                # quaternion = self.normalize_quaternion(quaternion)
-                quaternion = self.rotation_matrix_to_quaternion(right_grasp[:3, :3])
-                test_behavior.right_target_pose.pose.orientation.x = quaternion[0]
-                test_behavior.right_target_pose.pose.orientation.y = quaternion[1]
-                test_behavior.right_target_pose.pose.orientation.z = quaternion[2]
-                test_behavior.right_target_pose.pose.orientation.w = quaternion[3] 
+                #     # Convert the 3x3 rotation matrix to a quaternion
+                #     # quaternion = self.quaternion_from_matrix(right_grasp)
+                #     # quaternion = self.normalize_quaternion(quaternion)
+                #     quaternion = self.rotation_matrix_to_quaternion(right_grasp_initial[:3, :3])
+                #     test_behavior.right_target_pose.pose.orientation.x = quaternion[0]
+                #     test_behavior.right_target_pose.pose.orientation.y = quaternion[1]
+                #     test_behavior.right_target_pose.pose.orientation.z = quaternion[2]
+                #     test_behavior.right_target_pose.pose.orientation.w = quaternion[3] 
 
-                test_behavior.left_target_pose.pose.position.x = left_grasp[0, 3] #- 0.25
-                test_behavior.left_target_pose.pose.position.y = left_grasp[1, 3]
-                test_behavior.left_target_pose.pose.position.z = left_grasp[2, 3]
-                # Convert the 3x3 rotation matrix to a quaternion
-                # quaternion = self.quaternion_from_matrix(left_grasp)
-                # quaternion = self.normalize_quaternion(quaternion)
-                quaternion = self.rotation_matrix_to_quaternion(left_grasp[:3, :3])
-                test_behavior.left_target_pose.pose.orientation.x = quaternion[0]
-                test_behavior.left_target_pose.pose.orientation.y = quaternion[1]
-                test_behavior.left_target_pose.pose.orientation.z = quaternion[2]
-                test_behavior.left_target_pose.pose.orientation.w = quaternion[3]
+                #     test_behavior.left_target_pose.pose.position.x = left_grasp_initial[0, 3] #- 0.25
+                #     test_behavior.left_target_pose.pose.position.y = left_grasp_initial[1, 3]
+                #     test_behavior.left_target_pose.pose.position.z = left_grasp_initial[2, 3]
+                #     # Convert the 3x3 rotation matrix to a quaternion
+                #     # quaternion = self.quaternion_from_matrix(left_grasp)
+                #     # quaternion = self.normalize_quaternion(quaternion)
+                #     quaternion = self.rotation_matrix_to_quaternion(left_grasp_initial[:3, :3])
+                #     test_behavior.left_target_pose.pose.orientation.x = quaternion[0]
+                #     test_behavior.left_target_pose.pose.orientation.y = quaternion[1]
+                #     test_behavior.left_target_pose.pose.orientation.z = quaternion[2]
+                #     test_behavior.left_target_pose.pose.orientation.w = quaternion[3]
+                #     # test_behavior.behavior='visualize_target_ee_pose'
+                #     # result = behaviors_service(test_behavior)
+                #     print (test_behavior)
+                #     test_behavior.behavior='IK_move_to_pose_real_time'
+                #     result = behaviors_service(test_behavior)
+                #     print("Move to initial pre-grasp pose result: ", result.result)
+                #     if not result.result:
+                #         print("Initial pre-grasp pose failed, moving to next pair")
+                #         # time.sleep(1)
+                #         continue
+                #     # time.sleep(3)
 
-                # test_behavior.behavior='visualize_target_ee_pose'
-                # result = behaviors_service(test_behavior)
-                result = behaviors_service(test_behavior)
-                print("Move to grasp pose result: ", result.result)
-                time.sleep(3)
+                # # test_behavior.robot='dual'
+                # # test_behavior.behavior='IK_move_to_pose_real_time'
+                # for i in range(0,2):
+                #     test_behavior.right_target_pose.pose.position.x = right_grasp[0, 3] #+ 0.25
+                #     test_behavior.right_target_pose.pose.position.y = right_grasp[1, 3]
+                #     test_behavior.right_target_pose.pose.position.z = right_grasp[2, 3]
+                #     # Convert the 3x3 rotation matrix to a quaternion
+                #     # quaternion = self.quaternion_from_matrix(right_grasp)
+                #     # quaternion = self.normalize_quaternion(quaternion)
+                #     quaternion = self.rotation_matrix_to_quaternion(right_grasp[:3, :3])
+                #     test_behavior.right_target_pose.pose.orientation.x = quaternion[0]
+                #     test_behavior.right_target_pose.pose.orientation.y = quaternion[1]
+                #     test_behavior.right_target_pose.pose.orientation.z = quaternion[2]
+                #     test_behavior.right_target_pose.pose.orientation.w = quaternion[3] 
+
+                #     test_behavior.left_target_pose.pose.position.x = left_grasp[0, 3] #- 0.25
+                #     test_behavior.left_target_pose.pose.position.y = left_grasp[1, 3]
+                #     test_behavior.left_target_pose.pose.position.z = left_grasp[2, 3]
+                #     # Convert the 3x3 rotation matrix to a quaternion
+                #     # quaternion = self.quaternion_from_matrix(left_grasp)
+                #     # quaternion = self.normalize_quaternion(quaternion)
+                #     quaternion = self.rotation_matrix_to_quaternion(left_grasp[:3, :3])
+                #     test_behavior.left_target_pose.pose.orientation.x = quaternion[0]
+                #     test_behavior.left_target_pose.pose.orientation.y = quaternion[1]
+                #     test_behavior.left_target_pose.pose.orientation.z = quaternion[2]
+                #     test_behavior.left_target_pose.pose.orientation.w = quaternion[3]
+
+                #     # test_behavior.behavior='visualize_target_ee_pose'
+                #     # result = behaviors_service(test_behavior)
+                #     result = behaviors_service(test_behavior)
+                #     print("Move to grasp pose result: ", result.result)
+                #     # time.sleep(3)
 
                 ###End of dual arm
                 #If both grasps resulted in true
